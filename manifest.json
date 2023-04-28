@@ -1,0 +1,10 @@
+{
+    "id": "obsidian-flowershow",
+    "name": "Flowershow",
+    "version": "0.0.1",
+    "minAppVersion": "0.0.1",
+    "description": "Obsidian Flowershow plugin for publishing with flowershow direct from your obsidian vault.",
+    "author": "Rufus Pollock",
+    "authorUrl": "https://flowershow.app/",
+    "isDesktopOnly": false
+}

@@ -1,0 +1,37 @@
+{
+    "name": "obsidian-flowershow",
+    "version": "0.0.1",
+    "description": "Obsidian Flowershow plugin for publishing with flowershow direct from your obsidian vault.",
+    "main": "main.js",
+    "scripts": {
+        "dev": "node esbuild.config.mjs",
+        "dev1": "parcel main.ts",
+        "build": "node esbuild.config.mjs production"
+    },
+    "keywords": [],
+    "author": "Rufus Pollock",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/luxon": "^3.2.0",
+        "@types/node": "^16.11.6",
+        "@typescript-eslint/eslint-plugin": "^5.2.0",
+        "@typescript-eslint/parser": "^5.2.0",
+        "builtin-modules": "^3.2.0",
+        "esbuild": "0.13.12",
+        "obsidian": "^1.1.1",
+        "tslib": "2.3.1",
+        "typescript": "4.4.4"
+    },
+    "dependencies": {
+        "@octokit/core": "^3.5.1",
+        "@popperjs/core": "^2.11.6",
+        "@sindresorhus/slugify": "^1.1.0",
+        "@types/lz-string": "^1.3.34",
+        "axios": "^0.26.1",
+        "crypto-js": "^4.1.1",
+        "js-base64": "^3.7.2",
+        "luxon": "^3.2.1",
+        "lz-string": "^1.4.4",
+        "obsidian-dataview": "^0.5.55"
+    }
+}
