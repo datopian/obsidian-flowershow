@@ -50,7 +50,7 @@ export default class Publisher {
         for (const file of files) {
             try {
                 const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-                if (frontMatter && frontMatter["dg-publish"] === true) {
+                if (frontMatter && frontMatter["dgpublish"] === true) {
                     notesToPublish.push(file);
                     const images = await this.extractImageLinks(await this.vault.cachedRead(file), file.path);
                     images.forEach((i) => imagesToPublish.add(i));
@@ -150,7 +150,7 @@ export default class Publisher {
         }
 
         let text = await this.vault.cachedRead(file);
-        text = await this.convertFrontMatter(text, file);
+        // text = await this.convertFrontMatter(text, file);
         text = await this.createBlockIDs(text);
         text = await this.createTranscludedText(text, file.path, 0);
         text = await this.convertDataViews(text, file.path);
@@ -222,12 +222,12 @@ export default class Publisher {
 
     async uploadText(filePath: string, content: string) {
         content = Base64.encode(content);
-        const path = `src/site/notes/${filePath}`
+        const path = `content/${filePath}`
         await this.uploadToGithub(path, content)
     }
 
     async uploadImage(filePath: string, content: string) {
-        const path = `src/site${filePath}`
+        const path = `public${filePath}`
         await this.uploadToGithub(path, content)
     }
 
@@ -382,7 +382,7 @@ export default class Publisher {
         const fileFrontMatter = { ...this.metadataCache.getCache(file.path).frontmatter };
         delete fileFrontMatter["position"];
 
-        let publishedFrontMatter: any = { "dg-publish": true };
+        let publishedFrontMatter: any = { "dgpublish": true };
 
         publishedFrontMatter = this.addPermalink(fileFrontMatter, publishedFrontMatter, file.path);
         publishedFrontMatter = this.addDefaultPassThrough(fileFrontMatter, publishedFrontMatter);

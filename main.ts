@@ -275,7 +275,7 @@ export default class Flowershow extends Plugin {
 	}
 	async addPublishFlag() {
 		const engine = new ObsidianFrontMatterEngine(this.app.vault, this.app.metadataCache, this.app.workspace.getActiveFile());
-		engine.set("dg-publish", true).apply();
+		engine.set("dgpublish", true).apply();
 	}
 
 	openPublishModal() {
