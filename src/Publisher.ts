@@ -1,15 +1,15 @@
 import { DateTime } from 'luxon';
 import { MetadataCache, TFile, Vault, Notice, getLinkpath, Component } from "obsidian";
-import FlowershowSettings from "src/FlowershowSettings";
+import FlowershowSettings from "./FlowershowSettings";
 import { Base64 } from "js-base64";
 import { Octokit } from "@octokit/core";
 import { arrayBufferToBase64, escapeRegExp, generateUrlPath, getGardenPathForNote, getRewriteRules, kebabize } from "./utils";
-import { vallidatePublishFrontmatter } from "./Validator";
+import { validatePublishFrontmatter, validateSettings } from "./Validator";
 import { excaliDrawBundle, excalidraw } from "./constants";
 import { getAPI } from "obsidian-dataview";
 import slugify from "@sindresorhus/slugify";
 import LZString from "lz-string";
-import ObsidianFrontMatterEngine from './ObsidianFrontMatterEngine';
+
 
 export interface MarkedForPublishing {
     notes: TFile[],
@@ -18,7 +18,7 @@ export interface MarkedForPublishing {
 export interface IPublisher {
     [x: string]: any;
     publish(file: TFile): Promise<boolean>;
-    delete(vaultFilePath: string): Promise<boolean>;
+    deleteFromGtihub(vaultFilePath: string): Promise<boolean>;
     getFilesMarkedForPublishing(): Promise<MarkedForPublishing>;
     generateMarkdown(file: TFile): Promise<[string, any]>;
 }
@@ -33,6 +33,10 @@ export default class Publisher {
     codeBlockRegex = /```.*?\n[\s\S]+?```/g;
     excaliDrawRegex = /:\[\[(\d*?,\d*?)\],.*?\]\]/g;
 
+    /* flowershow new */
+    notesRepoDir = "content";
+    assetsRepoDir = "public";
+
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
         this.metadataCache = metadataCache;
@@ -40,58 +44,133 @@ export default class Publisher {
         this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
     }
 
+    /* PUBLISH AND UNPLUBLISH NOTES AND ASSETS */
 
-
-
-    async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
-        const files = this.vault.getMarkdownFiles();
-        const notesToPublish = [];
-        const imagesToPublish: Set<string> = new Set();
-        for (const file of files) {
-            try {
-                const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-                if (frontMatter && frontMatter["dgpublish"] === true) {
-                    notesToPublish.push(file);
-                    const images = await this.extractImageLinks(await this.vault.cachedRead(file), file.path);
-                    images.forEach((i) => imagesToPublish.add(i));
-                }
-            } catch {
-                //ignore
-            }
+    async publish(file: TFile): Promise<boolean> {
+        if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
+            return false;
         }
+        try {
+            const [text, assets] = await this.generateMarkdown(file);
+            await this.uploadText(file.path, text);
+            await this.uploadAssets(assets);
+            return true;
+        } catch {
+            return false;
+        }
+    }
 
-        return {
-            notes: notesToPublish,
-            images: Array.from(imagesToPublish)
-        };
+    async uploadText(filePath: string, content: string) {
+        content = Base64.encode(content);
+        const path = `content/${filePath}`
+        await this.uploadToGithub(path, content)
+    }
+
+    async uploadAssets(assets: any) {
+        for (let idx = 0; idx < assets.images.length; idx++) {
+            const image = assets.images[idx];
+            await this.uploadImage(image.path, image.content);
+
+        }
+    }
+
+    async uploadImage(filePath: string, content: string) {
+        const path = `public${filePath}`
+        await this.uploadToGithub(path, content)
     }
 
     async deleteNote(vaultFilePath: string) {
         const path = `src/site/notes/${vaultFilePath}`;
-        return await this.delete(path);
+        return await this.deleteFromGtihub(path);
     }
 
     async deleteImage(vaultFilePath: string) {
         const path = `src/site/img/user/${encodeURI(vaultFilePath)}`;
-        return await this.delete(path);
+        return await this.deleteFromGtihub(path);
     }
 
-    async delete(path: string): Promise<boolean> {
-        if (!this.settings.githubRepo) {
-            new Notice("Config error: You need to define a GitHub repo in the plugin settings");
-            throw {};
-        }
-        if (!this.settings.githubUserName) {
-            new Notice("Config error: You need to define a GitHub Username in the plugin settings");
-            throw {};
-        }
-        if (!this.settings.githubToken) {
-            new Notice("Config error: You need to define a GitHub Token in the plugin settings");
-            throw {};
+    async sendRequest(path: string, method: 'PUT' | 'DEL' = "PUT", content?: string) {
+        if (!validateSettings(this.settings)) {
+            throw {}
         }
 
         const octokit = new Octokit({ auth: this.settings.githubToken });
 
+        const payload = {
+            owner: this.settings.githubUserName,
+            repo: this.settings.githubRepo,
+            path,
+            message: `Delete content ${path}`,
+            sha: ''
+        };
+
+        try {
+            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+                owner: this.settings.githubUserName,
+                repo: this.settings.githubRepo,
+                path
+            });
+            if (response.status === 200 && response.data.type === "file") {
+                payload.sha = response.data.sha;
+            }
+        } catch (e) {
+            console.log(e)
+            return false;
+        }
+
+
+
+        try {
+            const response = await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
+        } catch (e) {
+            console.log(e)
+            return false
+        }
+        return true;
+
+    }
+
+    async uploadToGithub(path: string, content: string) {
+        if (!validateSettings(this.settings)) {
+            throw {}
+        }
+
+        const octokit = new Octokit({ auth: this.settings.githubToken });
+
+        const payload = {
+            owner: this.settings.githubUserName,
+            repo: this.settings.githubRepo,
+            path,
+            message: `Add content ${path}`,
+            content,
+            sha: ''
+        };
+
+        try {
+            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+                owner: this.settings.githubUserName,
+                repo: this.settings.githubRepo,
+                path
+            });
+            if (response.status === 200 && response.data.type === "file") {
+                payload.sha = response.data.sha;
+            }
+        } catch (e) {
+            console.log(e)
+        }
+
+        payload.message = `Update content ${path}`;
+
+        await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
+
+    }
+
+    async deleteFromGtihub(path: string): Promise<boolean> {
+        if (!validateSettings(this.settings)) {
+            throw {}
+        }
+
+        const octokit = new Octokit({ auth: this.settings.githubToken });
 
         const payload = {
             owner: this.settings.githubUserName,
@@ -126,20 +205,7 @@ export default class Publisher {
         return true;
     }
 
-
-    async publish(file: TFile): Promise<boolean> {
-        if (!vallidatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
-            return false;
-        }
-        try {
-            const [text, assets] = await this.generateMarkdown(file);
-            await this.uploadText(file.path, text);
-            await this.uploadAssets(assets);
-            return true;
-        } catch {
-            return false;
-        }
-    }
+    /* ALL OTHER STUFF */
 
     async generateMarkdown(file: TFile): Promise<[string, any]> {
         this.rewriteRules = getRewriteRules(this.settings.pathRewriteRules);
@@ -151,15 +217,25 @@ export default class Publisher {
 
         let text = await this.vault.cachedRead(file);
         // text = await this.convertFrontMatter(text, file);
-        text = await this.createBlockIDs(text);
-        text = await this.createTranscludedText(text, file.path, 0);
-        text = await this.convertDataViews(text, file.path);
-        text = await this.convertLinksToFullPath(text, file.path);
-        text = await this.removeObsidianComments(text);
-        text = await this.createSvgEmbeds(text, file.path);
+        // text = await this.createBlockIDs(text);
+        // text = await this.createTranscludedText(text, file.path, 0);
+        // text = await this.convertDataViews(text, file.path);
+        // text = await this.convertLinksToFullPath(text, file.path);
+        // text = await this.removeObsidianComments(text);
+        // text = await this.createSvgEmbeds(text, file.path);
         const text_and_images = await this.convertImageLinks(text, file.path);
         assets.images = text_and_images[1];
         return [text_and_images[0], assets];
+    }
+
+    /* MARKDOWN CONVERTERS */
+
+    async convertFrontMatter(text: string, file: TFile): Promise<string> {
+        const publishedFrontMatter = this.getProcessedFrontMatter(file);
+        const replaced = text.replace(this.frontmatterRegex, (match, p1) => {
+            return publishedFrontMatter;
+        });
+        return replaced;
     }
 
     async createBlockIDs(text: string) {
@@ -174,115 +250,96 @@ export default class Publisher {
         return text;
     }
 
-    async uploadToGithub(path: string, content: string) {
-        if (!this.settings.githubRepo) {
-            new Notice("Config error: You need to define a GitHub repo in the plugin settings");
-            throw {};
+    async createTranscludedText(text: string, filePath: string, currentDepth: number): Promise<string> {
+        if (currentDepth >= 4) {
+            return text;
         }
-        if (!this.settings.githubUserName) {
-            new Notice("Config error: You need to define a GitHub Username in the plugin settings");
-            throw {};
-        }
-        if (!this.settings.githubToken) {
-            new Notice("Config error: You need to define a GitHub Token in the plugin settings");
-            throw {};
-        }
+        const { notes: publishedFiles } = await this.getFilesMarkedForPublishing();
+        let transcludedText = text;
+        const transcludedRegex = /!\[\[(.+?)\]\]/g;
+        const transclusionMatches = text.match(transcludedRegex);
+        let numberOfExcaliDraws = 0;
+        if (transclusionMatches) {
+            for (let i = 0; i < transclusionMatches.length; i++) {
+                try {
+                    const transclusionMatch = transclusionMatches[i];
+                    const [tranclusionFileName, headerName] = transclusionMatch.substring(transclusionMatch.indexOf('[') + 2, transclusionMatch.indexOf(']')).split("|");
+                    const tranclusionFilePath = getLinkpath(tranclusionFileName);
+                    const linkedFile = this.metadataCache.getFirstLinkpathDest(tranclusionFilePath, filePath);
+                    let sectionID = "";
+                    if (linkedFile.name.endsWith(".excalidraw.md")) {
+                        const firstDrawing = ++numberOfExcaliDraws === 1;
+                        const excaliDrawCode = await this.generateExcalidrawMarkdown(linkedFile, firstDrawing, `${numberOfExcaliDraws}`, false);
 
+                        transcludedText = transcludedText.replace(transclusionMatch, excaliDrawCode);
 
-        const octokit = new Octokit({ auth: this.settings.githubToken });
+                    } else if (linkedFile.extension === "md") {
 
+                        let fileText = await this.vault.cachedRead(linkedFile);
+                        if (tranclusionFileName.includes('#^')) {
+                            // Transclude Block
+                            const metadata = this.metadataCache.getFileCache(linkedFile);
+                            const refBlock = tranclusionFileName.split('#^')[1];
+                            sectionID = `#${slugify(refBlock)}`;
+                            const blockInFile = metadata.blocks[refBlock];
+                            if (blockInFile) {
 
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Add content ${path}`,
-            content,
-            sha: ''
-        };
+                                fileText = fileText
+                                    .split('\n')
+                                    .slice(blockInFile.position.start.line, blockInFile.position.end.line + 1)
+                                    .join('\n').replace(`^${refBlock}`, '');
+                            }
+                        } else if (tranclusionFileName.includes('#')) { // transcluding header only
+                            const metadata = this.metadataCache.getFileCache(linkedFile);
+                            const refHeader = tranclusionFileName.split('#')[1];
+                            const headerInFile = metadata.headings?.find(header => header.heading === refHeader);
+                            sectionID = `#${slugify(refHeader)}`;
+                            if (headerInFile) {
+                                const headerPosition = metadata.headings.indexOf(headerInFile);
+                                // Embed should copy the content proparly under the given block
+                                const cutTo = metadata.headings.slice(headerPosition + 1).find(header => header.level <= headerInFile.level);
+                                if (cutTo) {
+                                    const cutToLine = cutTo?.position?.start?.line;
+                                    fileText = fileText
+                                        .split('\n')
+                                        .slice(headerInFile.position.start.line, cutToLine)
+                                        .join('\n');
+                                } else {
+                                    fileText = fileText
+                                        .split('\n')
+                                        .slice(headerInFile.position.start.line)
+                                        .join('\n');
+                                }
 
-        try {
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                path
-            });
-            if (response.status === 200 && response.data.type === "file") {
-                payload.sha = response.data.sha;
-            }
-        } catch (e) {
-            console.log(e)
-        }
+                            }
+                        }
+                        //Remove frontmatter from transclusion
+                        fileText = fileText.replace(this.frontmatterRegex, "");
 
-        payload.message = `Update content ${path}`;
+                        const header = this.generateTransclusionHeader(headerName, linkedFile);
 
-        await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
+                        const headerSection = header ? `$<div class="markdown-embed-title">\n\n${header}\n\n</div>\n` : '';
+                        let embedded_link = "";
+                        if (publishedFiles.find((f) => f.path == linkedFile.path)) {
+                            embedded_link = `<a class="markdown-embed-link" href="/${generateUrlPath(getGardenPathForNote(linkedFile.path, this.rewriteRules))}${sectionID}" aria-label="Open link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a>`;
+                        }
+                        fileText = `\n<div class="transclusion internal-embed is-loaded">${embedded_link}<div class="markdown-embed">\n\n${headerSection}\n\n`
+                            + fileText + '\n\n</div></div>\n'
 
-    }
-
-    async uploadText(filePath: string, content: string) {
-        content = Base64.encode(content);
-        const path = `content/${filePath}`
-        await this.uploadToGithub(path, content)
-    }
-
-    async uploadImage(filePath: string, content: string) {
-        const path = `public${filePath}`
-        await this.uploadToGithub(path, content)
-    }
-
-    async uploadAssets(assets: any) {
-        for (let idx = 0; idx < assets.images.length; idx++) {
-            const image = assets.images[idx];
-            await this.uploadImage(image.path, image.content);
-
-        }
-    }
-
-    stripAwayCodeFencesAndFrontmatter(text: string): string {
-        let textToBeProcessed = text;
-        textToBeProcessed = textToBeProcessed.replace(this.excaliDrawRegex, '');
-        textToBeProcessed = textToBeProcessed.replace(this.codeBlockRegex, '');
-        textToBeProcessed = textToBeProcessed.replace(this.codeFenceRegex, '');
-        textToBeProcessed = textToBeProcessed.replace(this.frontmatterRegex, '');
-
-        return textToBeProcessed;
-
-    }
-
-    async removeObsidianComments(text: string): Promise<string> {
-        const obsidianCommentsRegex = /%%.+?%%/gms;
-        const obsidianCommentsMatches = text.match(obsidianCommentsRegex);
-        const codeBlocks = text.match(this.codeBlockRegex) || [];
-        const codeFences = text.match(this.codeFenceRegex) || [];
-        const excalidraw = text.match(this.excaliDrawRegex) || [];
-
-        if (obsidianCommentsMatches) {
-            for (const commentMatch of obsidianCommentsMatches) {
-                //If comment is in a code block, code fence, or excalidrawing, leave it in
-                if (codeBlocks.findIndex(x => x.contains(commentMatch)) > -1) {
+                        if (fileText.match(transcludedRegex)) {
+                            fileText = await this.createTranscludedText(fileText, linkedFile.path, currentDepth + 1);
+                        }
+                        //This should be recursive up to a certain depth
+                        transcludedText = transcludedText.replace(transclusionMatch, fileText);
+                    }
+                } catch {
                     continue;
                 }
-                if (codeFences.findIndex(x => x.contains(commentMatch)) > -1) {
-                    continue;
-                }
-
-                if (excalidraw.findIndex(x => x.contains(commentMatch)) > -1) {
-                    continue;
-                }
-                text = text.replace(commentMatch, '');
             }
         }
 
-        return text;
-    }
+        return transcludedText;
 
-    async convertFrontMatter(text: string, file: TFile): Promise<string> {
-        const publishedFrontMatter = this.getProcessedFrontMatter(file);
-        const replaced = text.replace(this.frontmatterRegex, (match, p1) => {
-            return publishedFrontMatter;
-        });
-        return replaced;
     }
 
     async convertDataViews(text: string, path: string): Promise<string> {
@@ -376,6 +433,176 @@ export default class Publisher {
 
         return replacedText;
 
+    }
+
+    async convertLinksToFullPath(text: string, filePath: string): Promise<string> {
+        let convertedText = text;
+
+        const textToBeProcessed = this.stripAwayCodeFencesAndFrontmatter(text);
+
+        const linkedFileRegex = /\[\[(.+?)\]\]/g;
+        const linkedFileMatches = textToBeProcessed.match(linkedFileRegex);
+
+        if (linkedFileMatches) {
+            for (const linkMatch of linkedFileMatches) {
+                try {
+
+                    const textInsideBrackets = linkMatch.substring(linkMatch.indexOf('[') + 2, linkMatch.lastIndexOf(']') - 1);
+                    let [linkedFileName, prettyName] = textInsideBrackets.split("|");
+                    if (linkedFileName.endsWith("\\")) {
+                        linkedFileName = linkedFileName.substring(0, linkedFileName.length - 1);
+                    }
+
+                    prettyName = prettyName || linkedFileName;
+                    let headerPath = "";
+                    if (linkedFileName.includes("#")) {
+                        const headerSplit = linkedFileName.split("#");
+                        linkedFileName = headerSplit[0];
+                        //currently no support for linking to nested heading with multiple #s
+                        headerPath = headerSplit.length > 1 ? `#${headerSplit[1]}` : '';
+
+                    }
+                    const fullLinkedFilePath = getLinkpath(linkedFileName);
+                    const linkedFile = this.metadataCache.getFirstLinkpathDest(fullLinkedFilePath, filePath);
+                    if (!linkedFile) {
+                        convertedText = convertedText.replace(linkMatch, `[[${linkedFileName}${headerPath}\\|${prettyName}]]`);
+                    }
+                    if (linkedFile?.extension === "md") {
+                        const extensionlessPath = linkedFile.path.substring(0, linkedFile.path.lastIndexOf('.'));
+                        convertedText = convertedText.replace(linkMatch, `[[${extensionlessPath}${headerPath}\\|${prettyName}]]`);
+                    }
+                } catch (e) {
+                    console.log(e);
+                    continue;
+                }
+            }
+        }
+
+        return convertedText;
+
+    }
+
+    async removeObsidianComments(text: string): Promise<string> {
+        const obsidianCommentsRegex = /%%.+?%%/gms;
+        const obsidianCommentsMatches = text.match(obsidianCommentsRegex);
+        const codeBlocks = text.match(this.codeBlockRegex) || [];
+        const codeFences = text.match(this.codeFenceRegex) || [];
+        const excalidraw = text.match(this.excaliDrawRegex) || [];
+
+        if (obsidianCommentsMatches) {
+            for (const commentMatch of obsidianCommentsMatches) {
+                //If comment is in a code block, code fence, or excalidrawing, leave it in
+                if (codeBlocks.findIndex(x => x.contains(commentMatch)) > -1) {
+                    continue;
+                }
+                if (codeFences.findIndex(x => x.contains(commentMatch)) > -1) {
+                    continue;
+                }
+
+                if (excalidraw.findIndex(x => x.contains(commentMatch)) > -1) {
+                    continue;
+                }
+                text = text.replace(commentMatch, '');
+            }
+        }
+
+        return text;
+    }
+
+    async createSvgEmbeds(text: string, filePath: string): Promise<string> {
+
+        function setWidth(svgText: string, size: string): string {
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+            const svgElement = svgDoc.getElementsByTagName("svg")[0];
+            svgElement.setAttribute("width", size);
+            const svgSerializer = new XMLSerializer();
+            return svgSerializer.serializeToString(svgDoc);
+        }
+        //![[image.svg]]
+        const transcludedSvgRegex = /!\[\[(.*?)(\.(svg))\|(.*?)\]\]|!\[\[(.*?)(\.(svg))\]\]/g;
+        const transcludedSvgs = text.match(transcludedSvgRegex);
+        if (transcludedSvgs) {
+            for (const svg of transcludedSvgs) {
+                try {
+
+                    const [imageName, size] = svg.substring(svg.indexOf('[') + 2, svg.indexOf(']')).split("|");
+                    const imagePath = getLinkpath(imageName);
+                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
+                    let svgText = await this.vault.read(linkedFile);
+                    if (svgText && size) {
+                        svgText = setWidth(svgText, size);
+                    }
+                    text = text.replace(svg, svgText);
+                } catch {
+                    continue;
+                }
+            }
+        }
+
+        //!()[image.svg]
+        const linkedSvgRegex = /!\[(.*?)\]\((.*?)(\.(svg))\)/g;
+        const linkedSvgMatches = text.match(linkedSvgRegex);
+        if (linkedSvgMatches) {
+            for (const svg of linkedSvgMatches) {
+                try {
+                    const [imageName, size] = svg.substring(svg.indexOf('[') + 2, svg.indexOf(']')).split("|");
+                    const pathStart = svg.lastIndexOf("(") + 1;
+                    const pathEnd = svg.lastIndexOf(")");
+                    const imagePath = svg.substring(pathStart, pathEnd);
+                    if (imagePath.startsWith("http")) {
+                        continue;
+                    }
+
+                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
+                    let svgText = await this.vault.read(linkedFile);
+                    if (svgText && size) {
+                        svgText = setWidth(svgText, size);
+                    }
+                    text = text.replace(svg, svgText);
+                } catch {
+                    continue;
+                }
+            }
+        }
+
+        return text;
+    }
+
+    /* MISCELLANEOUS */
+
+    // Used in PublishStatusManager
+    async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
+        const files = this.vault.getMarkdownFiles();
+        const notesToPublish = [];
+        const imagesToPublish: Set<string> = new Set();
+        for (const file of files) {
+            try {
+                const frontMatter = this.metadataCache.getCache(file.path).frontmatter
+                if (frontMatter && frontMatter["dgpublish"] === true) {
+                    notesToPublish.push(file);
+                    const images = await this.extractImageLinks(await this.vault.cachedRead(file), file.path);
+                    images.forEach((i) => imagesToPublish.add(i));
+                }
+            } catch {
+                //ignore
+            }
+        }
+
+        return {
+            notes: notesToPublish,
+            images: Array.from(imagesToPublish)
+        };
+    }
+
+    stripAwayCodeFencesAndFrontmatter(text: string): string {
+        let textToBeProcessed = text;
+        textToBeProcessed = textToBeProcessed.replace(this.excaliDrawRegex, '');
+        textToBeProcessed = textToBeProcessed.replace(this.codeBlockRegex, '');
+        textToBeProcessed = textToBeProcessed.replace(this.codeFenceRegex, '');
+        textToBeProcessed = textToBeProcessed.replace(this.frontmatterRegex, '');
+
+        return textToBeProcessed;
     }
 
     getProcessedFrontMatter(file: TFile): string {
@@ -555,206 +782,6 @@ export default class Publisher {
         }
 
         return publishedFrontMatter;
-    }
-
-    async convertLinksToFullPath(text: string, filePath: string): Promise<string> {
-        let convertedText = text;
-
-        const textToBeProcessed = this.stripAwayCodeFencesAndFrontmatter(text);
-
-        const linkedFileRegex = /\[\[(.+?)\]\]/g;
-        const linkedFileMatches = textToBeProcessed.match(linkedFileRegex);
-
-        if (linkedFileMatches) {
-            for (const linkMatch of linkedFileMatches) {
-                try {
-
-                    const textInsideBrackets = linkMatch.substring(linkMatch.indexOf('[') + 2, linkMatch.lastIndexOf(']') - 1);
-                    let [linkedFileName, prettyName] = textInsideBrackets.split("|");
-                    if (linkedFileName.endsWith("\\")) {
-                        linkedFileName = linkedFileName.substring(0, linkedFileName.length - 1);
-                    }
-
-                    prettyName = prettyName || linkedFileName;
-                    let headerPath = "";
-                    if (linkedFileName.includes("#")) {
-                        const headerSplit = linkedFileName.split("#");
-                        linkedFileName = headerSplit[0];
-                        //currently no support for linking to nested heading with multiple #s
-                        headerPath = headerSplit.length > 1 ? `#${headerSplit[1]}` : '';
-
-                    }
-                    const fullLinkedFilePath = getLinkpath(linkedFileName);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(fullLinkedFilePath, filePath);
-                    if (!linkedFile) {
-                        convertedText = convertedText.replace(linkMatch, `[[${linkedFileName}${headerPath}\\|${prettyName}]]`);
-                    }
-                    if (linkedFile?.extension === "md") {
-                        const extensionlessPath = linkedFile.path.substring(0, linkedFile.path.lastIndexOf('.'));
-                        convertedText = convertedText.replace(linkMatch, `[[${extensionlessPath}${headerPath}\\|${prettyName}]]`);
-                    }
-                } catch (e) {
-                    console.log(e);
-                    continue;
-                }
-            }
-        }
-
-        return convertedText;
-
-    }
-
-    async createTranscludedText(text: string, filePath: string, currentDepth: number): Promise<string> {
-        if (currentDepth >= 4) {
-            return text;
-        }
-        const { notes: publishedFiles } = await this.getFilesMarkedForPublishing();
-        let transcludedText = text;
-        const transcludedRegex = /!\[\[(.+?)\]\]/g;
-        const transclusionMatches = text.match(transcludedRegex);
-        let numberOfExcaliDraws = 0;
-        if (transclusionMatches) {
-            for (let i = 0; i < transclusionMatches.length; i++) {
-                try {
-                    const transclusionMatch = transclusionMatches[i];
-                    const [tranclusionFileName, headerName] = transclusionMatch.substring(transclusionMatch.indexOf('[') + 2, transclusionMatch.indexOf(']')).split("|");
-                    const tranclusionFilePath = getLinkpath(tranclusionFileName);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(tranclusionFilePath, filePath);
-                    let sectionID = "";
-                    if (linkedFile.name.endsWith(".excalidraw.md")) {
-                        const firstDrawing = ++numberOfExcaliDraws === 1;
-                        const excaliDrawCode = await this.generateExcalidrawMarkdown(linkedFile, firstDrawing, `${numberOfExcaliDraws}`, false);
-
-                        transcludedText = transcludedText.replace(transclusionMatch, excaliDrawCode);
-
-                    } else if (linkedFile.extension === "md") {
-
-                        let fileText = await this.vault.cachedRead(linkedFile);
-                        if (tranclusionFileName.includes('#^')) {
-                            // Transclude Block
-                            const metadata = this.metadataCache.getFileCache(linkedFile);
-                            const refBlock = tranclusionFileName.split('#^')[1];
-                            sectionID = `#${slugify(refBlock)}`;
-                            const blockInFile = metadata.blocks[refBlock];
-                            if (blockInFile) {
-
-                                fileText = fileText
-                                    .split('\n')
-                                    .slice(blockInFile.position.start.line, blockInFile.position.end.line + 1)
-                                    .join('\n').replace(`^${refBlock}`, '');
-                            }
-                        } else if (tranclusionFileName.includes('#')) { // transcluding header only
-                            const metadata = this.metadataCache.getFileCache(linkedFile);
-                            const refHeader = tranclusionFileName.split('#')[1];
-                            const headerInFile = metadata.headings?.find(header => header.heading === refHeader);
-                            sectionID = `#${slugify(refHeader)}`;
-                            if (headerInFile) {
-                                const headerPosition = metadata.headings.indexOf(headerInFile);
-                                // Embed should copy the content proparly under the given block
-                                const cutTo = metadata.headings.slice(headerPosition + 1).find(header => header.level <= headerInFile.level);
-                                if (cutTo) {
-                                    const cutToLine = cutTo?.position?.start?.line;
-                                    fileText = fileText
-                                        .split('\n')
-                                        .slice(headerInFile.position.start.line, cutToLine)
-                                        .join('\n');
-                                } else {
-                                    fileText = fileText
-                                        .split('\n')
-                                        .slice(headerInFile.position.start.line)
-                                        .join('\n');
-                                }
-
-                            }
-                        }
-                        //Remove frontmatter from transclusion
-                        fileText = fileText.replace(this.frontmatterRegex, "");
-
-                        const header = this.generateTransclusionHeader(headerName, linkedFile);
-
-                        const headerSection = header ? `$<div class="markdown-embed-title">\n\n${header}\n\n</div>\n` : '';
-                        let embedded_link = "";
-                        if (publishedFiles.find((f) => f.path == linkedFile.path)) {
-                            embedded_link = `<a class="markdown-embed-link" href="/${generateUrlPath(getGardenPathForNote(linkedFile.path, this.rewriteRules))}${sectionID}" aria-label="Open link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></a>`;
-                        }
-                        fileText = `\n<div class="transclusion internal-embed is-loaded">${embedded_link}<div class="markdown-embed">\n\n${headerSection}\n\n`
-                            + fileText + '\n\n</div></div>\n'
-
-                        if (fileText.match(transcludedRegex)) {
-                            fileText = await this.createTranscludedText(fileText, linkedFile.path, currentDepth + 1);
-                        }
-                        //This should be recursive up to a certain depth
-                        transcludedText = transcludedText.replace(transclusionMatch, fileText);
-                    }
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        return transcludedText;
-
-    }
-
-
-    async createSvgEmbeds(text: string, filePath: string): Promise<string> {
-
-        function setWidth(svgText: string, size: string): string {
-            const parser = new DOMParser();
-            const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
-            const svgElement = svgDoc.getElementsByTagName("svg")[0];
-            svgElement.setAttribute("width", size);
-            const svgSerializer = new XMLSerializer();
-            return svgSerializer.serializeToString(svgDoc);
-        }
-        //![[image.svg]]
-        const transcludedSvgRegex = /!\[\[(.*?)(\.(svg))\|(.*?)\]\]|!\[\[(.*?)(\.(svg))\]\]/g;
-        const transcludedSvgs = text.match(transcludedSvgRegex);
-        if (transcludedSvgs) {
-            for (const svg of transcludedSvgs) {
-                try {
-
-                    const [imageName, size] = svg.substring(svg.indexOf('[') + 2, svg.indexOf(']')).split("|");
-                    const imagePath = getLinkpath(imageName);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    let svgText = await this.vault.read(linkedFile);
-                    if (svgText && size) {
-                        svgText = setWidth(svgText, size);
-                    }
-                    text = text.replace(svg, svgText);
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        //!()[image.svg]
-        const linkedSvgRegex = /!\[(.*?)\]\((.*?)(\.(svg))\)/g;
-        const linkedSvgMatches = text.match(linkedSvgRegex);
-        if (linkedSvgMatches) {
-            for (const svg of linkedSvgMatches) {
-                try {
-                    const [imageName, size] = svg.substring(svg.indexOf('[') + 2, svg.indexOf(']')).split("|");
-                    const pathStart = svg.lastIndexOf("(") + 1;
-                    const pathEnd = svg.lastIndexOf(")");
-                    const imagePath = svg.substring(pathStart, pathEnd);
-                    if (imagePath.startsWith("http")) {
-                        continue;
-                    }
-
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    let svgText = await this.vault.read(linkedFile);
-                    if (svgText && size) {
-                        svgText = setWidth(svgText, size);
-                    }
-                    text = text.replace(svg, svgText);
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        return text;
     }
 
     async extractImageLinks(text: string, filePath: string): Promise<string[]> {
