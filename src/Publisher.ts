@@ -89,47 +89,6 @@ export default class Publisher {
         return await this.deleteFromGtihub(path);
     }
 
-    async sendRequest(path: string, method: 'PUT' | 'DEL' = "PUT", content?: string) {
-        if (!validateSettings(this.settings)) {
-            throw {}
-        }
-
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Delete content ${path}`,
-            sha: ''
-        };
-
-        try {
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                path
-            });
-            if (response.status === 200 && response.data.type === "file") {
-                payload.sha = response.data.sha;
-            }
-        } catch (e) {
-            console.log(e)
-            return false;
-        }
-
-
-
-        try {
-            const response = await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
-        } catch (e) {
-            console.log(e)
-            return false
-        }
-        return true;
-
-    }
-
     async uploadToGithub(path: string, content: string) {
         if (!validateSettings(this.settings)) {
             throw {}
@@ -208,35 +167,22 @@ export default class Publisher {
     /* ALL OTHER STUFF */
 
     async generateMarkdown(file: TFile): Promise<[string, any]> {
-        this.rewriteRules = getRewriteRules(this.settings.pathRewriteRules);
-
         const assets: any = { images: [] };
         if (file.name.endsWith(".excalidraw.md")) {
             return [await this.generateExcalidrawMarkdown(file, true), assets];
         }
 
-        let text = await this.vault.cachedRead(file);
-        // text = await this.convertFrontMatter(text, file);
+        const text = await this.vault.cachedRead(file);
         // text = await this.createBlockIDs(text);
         // text = await this.createTranscludedText(text, file.path, 0);
         // text = await this.convertDataViews(text, file.path);
-        // text = await this.convertLinksToFullPath(text, file.path);
-        // text = await this.removeObsidianComments(text);
         // text = await this.createSvgEmbeds(text, file.path);
-        const text_and_images = await this.convertImageLinks(text, file.path);
-        assets.images = text_and_images[1];
-        return [text_and_images[0], assets];
+        const images = await this.extractEmbeddedImagesPaths(text, file.path);
+        assets.images = images;
+        return [text, assets];
     }
 
     /* MARKDOWN CONVERTERS */
-
-    async convertFrontMatter(text: string, file: TFile): Promise<string> {
-        const publishedFrontMatter = this.getProcessedFrontMatter(file);
-        const replaced = text.replace(this.frontmatterRegex, (match, p1) => {
-            return publishedFrontMatter;
-        });
-        return replaced;
-    }
 
     async createBlockIDs(text: string) {
         const block_pattern = / \^([\w\d-]+)/g;
@@ -435,80 +381,6 @@ export default class Publisher {
 
     }
 
-    async convertLinksToFullPath(text: string, filePath: string): Promise<string> {
-        let convertedText = text;
-
-        const textToBeProcessed = this.stripAwayCodeFencesAndFrontmatter(text);
-
-        const linkedFileRegex = /\[\[(.+?)\]\]/g;
-        const linkedFileMatches = textToBeProcessed.match(linkedFileRegex);
-
-        if (linkedFileMatches) {
-            for (const linkMatch of linkedFileMatches) {
-                try {
-
-                    const textInsideBrackets = linkMatch.substring(linkMatch.indexOf('[') + 2, linkMatch.lastIndexOf(']') - 1);
-                    let [linkedFileName, prettyName] = textInsideBrackets.split("|");
-                    if (linkedFileName.endsWith("\\")) {
-                        linkedFileName = linkedFileName.substring(0, linkedFileName.length - 1);
-                    }
-
-                    prettyName = prettyName || linkedFileName;
-                    let headerPath = "";
-                    if (linkedFileName.includes("#")) {
-                        const headerSplit = linkedFileName.split("#");
-                        linkedFileName = headerSplit[0];
-                        //currently no support for linking to nested heading with multiple #s
-                        headerPath = headerSplit.length > 1 ? `#${headerSplit[1]}` : '';
-
-                    }
-                    const fullLinkedFilePath = getLinkpath(linkedFileName);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(fullLinkedFilePath, filePath);
-                    if (!linkedFile) {
-                        convertedText = convertedText.replace(linkMatch, `[[${linkedFileName}${headerPath}\\|${prettyName}]]`);
-                    }
-                    if (linkedFile?.extension === "md") {
-                        const extensionlessPath = linkedFile.path.substring(0, linkedFile.path.lastIndexOf('.'));
-                        convertedText = convertedText.replace(linkMatch, `[[${extensionlessPath}${headerPath}\\|${prettyName}]]`);
-                    }
-                } catch (e) {
-                    console.log(e);
-                    continue;
-                }
-            }
-        }
-
-        return convertedText;
-
-    }
-
-    async removeObsidianComments(text: string): Promise<string> {
-        const obsidianCommentsRegex = /%%.+?%%/gms;
-        const obsidianCommentsMatches = text.match(obsidianCommentsRegex);
-        const codeBlocks = text.match(this.codeBlockRegex) || [];
-        const codeFences = text.match(this.codeFenceRegex) || [];
-        const excalidraw = text.match(this.excaliDrawRegex) || [];
-
-        if (obsidianCommentsMatches) {
-            for (const commentMatch of obsidianCommentsMatches) {
-                //If comment is in a code block, code fence, or excalidrawing, leave it in
-                if (codeBlocks.findIndex(x => x.contains(commentMatch)) > -1) {
-                    continue;
-                }
-                if (codeFences.findIndex(x => x.contains(commentMatch)) > -1) {
-                    continue;
-                }
-
-                if (excalidraw.findIndex(x => x.contains(commentMatch)) > -1) {
-                    continue;
-                }
-                text = text.replace(commentMatch, '');
-            }
-        }
-
-        return text;
-    }
-
     async createSvgEmbeds(text: string, filePath: string): Promise<string> {
 
         function setWidth(svgText: string, size: string): string {
@@ -605,185 +477,6 @@ export default class Publisher {
         return textToBeProcessed;
     }
 
-    getProcessedFrontMatter(file: TFile): string {
-        const fileFrontMatter = { ...this.metadataCache.getCache(file.path).frontmatter };
-        delete fileFrontMatter["position"];
-
-        let publishedFrontMatter: any = { "dgpublish": true };
-
-        publishedFrontMatter = this.addPermalink(fileFrontMatter, publishedFrontMatter, file.path);
-        publishedFrontMatter = this.addDefaultPassThrough(fileFrontMatter, publishedFrontMatter);
-        publishedFrontMatter = this.addContentClasses(fileFrontMatter, publishedFrontMatter);
-        publishedFrontMatter = this.addPageTags(fileFrontMatter, publishedFrontMatter);
-        publishedFrontMatter = this.addFrontMatterSettings(fileFrontMatter, publishedFrontMatter);
-        publishedFrontMatter = this.addNoteIconFrontMatter(fileFrontMatter, publishedFrontMatter);
-        publishedFrontMatter = this.addTimestampsFrontmatter(fileFrontMatter, publishedFrontMatter, file);
-
-        const fullFrontMatter = publishedFrontMatter?.dgPassFrontmatter ? { ...fileFrontMatter, ...publishedFrontMatter } : publishedFrontMatter;
-        const frontMatterString = JSON.stringify(fullFrontMatter);
-
-        return `---\n${frontMatterString}\n---\n`;
-    }
-
-    addDefaultPassThrough(baseFrontMatter: any, newFrontMatter: any) {
-        // Eventually we will add other pass-throughs here. e.g. tags.
-        const publishedFrontMatter = { ...newFrontMatter };
-        if (baseFrontMatter) {
-            if (baseFrontMatter["title"]) {
-                publishedFrontMatter["title"] = baseFrontMatter["title"];
-            }
-            if (baseFrontMatter["dg-metatags"]) {
-                publishedFrontMatter["metatags"] = baseFrontMatter["dg-metatags"];
-            }
-            if (baseFrontMatter["dg-hide"]) {
-                publishedFrontMatter["hide"] = baseFrontMatter["dg-hide"];
-            }
-            if (baseFrontMatter["dg-hide-in-graph"]) {
-                publishedFrontMatter["hideInGraph"] = baseFrontMatter["dg-hide-in-graph"];
-            }
-            if (baseFrontMatter["dg-pinned"]) {
-                publishedFrontMatter["pinned"] = baseFrontMatter["dg-pinned"];
-            }
-
-        }
-        return publishedFrontMatter;
-    }
-
-    addPermalink(baseFrontMatter: any, newFrontMatter: any, filePath: string) {
-        const publishedFrontMatter = { ...newFrontMatter };
-        const gardenPath = (baseFrontMatter && baseFrontMatter['dg-path']) ? baseFrontMatter['dg-path'] : getGardenPathForNote(filePath, this.rewriteRules);
-        if (gardenPath != filePath) {
-            publishedFrontMatter['dg-path'] = gardenPath;
-        }
-
-        if (baseFrontMatter && baseFrontMatter["dg-permalink"]) {
-            publishedFrontMatter["dg-permalink"] = baseFrontMatter["dg-permalink"];
-            publishedFrontMatter["permalink"] = baseFrontMatter["dg-permalink"];
-            if (!publishedFrontMatter["permalink"].endsWith("/")) {
-                publishedFrontMatter["permalink"] += "/";
-            }
-            if (!publishedFrontMatter["permalink"].startsWith("/")) {
-                publishedFrontMatter["permalink"] = "/" + publishedFrontMatter["permalink"];
-            }
-        } else {
-            publishedFrontMatter["permalink"] = "/" + generateUrlPath(gardenPath, this.settings.slugifyEnabled);
-        }
-
-        return publishedFrontMatter;
-    }
-
-    addPageTags(baseFrontMatter: any, newFrontMatter: any) {
-        const publishedFrontMatter = { ...newFrontMatter };
-        if (baseFrontMatter) {
-            const tags = (typeof (baseFrontMatter["tags"]) === "string" ? [baseFrontMatter["tags"]] : baseFrontMatter["tags"]) || [];
-            if (baseFrontMatter["dg-home"]) {
-                tags.push("gardenEntry")
-            }
-            if (tags.length > 0) {
-                publishedFrontMatter["tags"] = tags;
-            }
-        }
-        return publishedFrontMatter;
-    }
-
-    addContentClasses(baseFrontMatter: any, newFrontMatter: any) {
-        const publishedFrontMatter = { ...newFrontMatter };
-
-        if (baseFrontMatter) {
-            const contentClassesKey = this.settings.contentClassesKey;
-            if (contentClassesKey && baseFrontMatter[contentClassesKey]) {
-                if (typeof baseFrontMatter[contentClassesKey] == "string") {
-                    publishedFrontMatter['contentClasses'] = baseFrontMatter[contentClassesKey];
-                } else if (Array.isArray(baseFrontMatter[contentClassesKey])) {
-                    publishedFrontMatter['contentClasses'] = baseFrontMatter[contentClassesKey].join(" ");
-                } else {
-                    publishedFrontMatter['contentClasses'] = "";
-                }
-            }
-        }
-
-        return publishedFrontMatter;
-    }
-
-    addTimestampsFrontmatter(baseFrontMatter: any, newFrontMatter: any, file: TFile) {
-        if (!baseFrontMatter) {
-            baseFrontMatter = {};
-        }
-
-        //If all note icon settings are disabled, don't change the frontmatter, so that people won't see all their notes as changed in the publication center
-        if (!this.settings.showCreatedTimestamp
-            && !this.settings.showUpdatedTimestamp) {
-            return newFrontMatter;
-        }
-
-        const publishedFrontMatter = { ...newFrontMatter };
-        const createdKey = this.settings.createdTimestampKey;
-        const updatedKey = this.settings.updatedTimestampKey;
-        if (createdKey.length) {
-            if (typeof baseFrontMatter[createdKey] == "string") {
-                publishedFrontMatter['created'] = baseFrontMatter[createdKey];
-            } else {
-                publishedFrontMatter['created'] = '';
-            }
-        } else {
-            publishedFrontMatter['created'] = DateTime.fromMillis(file.stat.ctime).toISO();
-        }
-        if (updatedKey.length) {
-            if (typeof baseFrontMatter[updatedKey] == "string") {
-                publishedFrontMatter['updated'] = baseFrontMatter[updatedKey];
-            } else {
-                publishedFrontMatter['updated'] = '';
-            }
-        } else {
-            publishedFrontMatter['updated'] = DateTime.fromMillis(file.stat.mtime).toISO();
-        }
-        return publishedFrontMatter;
-    }
-
-    addNoteIconFrontMatter(baseFrontMatter: any, newFrontMatter: any) {
-        if (!baseFrontMatter) {
-            baseFrontMatter = {};
-        }
-
-        //If all note icon settings are disabled, don't change the frontmatter, so that people won't see all their notes as changed in the publication center
-        if (!this.settings.showNoteIconInFileTree
-            && !this.settings.showNoteIconOnInternalLink
-            && !this.settings.showNoteIconOnTitle
-            && !this.settings.showNoteIconOnBackLink) {
-            return newFrontMatter;
-        }
-
-        const publishedFrontMatter = { ...newFrontMatter };
-        const noteIconKey = this.settings.noteIconKey;
-        if (baseFrontMatter[noteIconKey] !== undefined) {
-            publishedFrontMatter['noteIcon'] = baseFrontMatter[noteIconKey];
-        } else {
-            publishedFrontMatter['noteIcon'] = this.settings.defaultNoteIcon;
-        }
-        return publishedFrontMatter;
-    }
-
-    addFrontMatterSettings(baseFrontMatter: {}, newFrontMatter: {}) {
-        if (!baseFrontMatter) {
-            baseFrontMatter = {};
-        }
-        const publishedFrontMatter = { ...newFrontMatter };
-        for (const key of Object.keys(this.settings.defaultNoteSettings)) {
-            //@ts-ignore
-            if (baseFrontMatter[kebabize(key)] !== undefined) {
-                //@ts-ignore
-                publishedFrontMatter[key] = baseFrontMatter[kebabize(key)]
-            }
-        }
-
-        if (this.settings.defaultNoteSettings.dgPassFrontmatter) {
-            //@ts-ignore
-            publishedFrontMatter.dgPassFrontmatter = this.settings.defaultNoteSettings.dgPassFrontmatter;
-        }
-
-        return publishedFrontMatter;
-    }
-
     async extractImageLinks(text: string, filePath: string): Promise<string[]> {
         const assets = [];
 
@@ -835,43 +528,39 @@ export default class Publisher {
         return assets;
     }
 
-    async convertImageLinks(text: string, filePath: string): Promise<[string, Array<{ path: string, content: string }>]> {
+    // DONE
+    async extractEmbeddedImagesPaths(text: string, filePath: string): Promise<Array<{ path: string, content: string }>> {
         const assets = [];
 
-        let imageText = text;
         //![[image.png]]
         const transcludedImageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif))\]\]/g;
         const transcludedImageMatches = text.match(transcludedImageRegex);
-        if (transcludedImageMatches) {
-            for (let i = 0; i < transcludedImageMatches.length; i++) {
-                try {
-                    const imageMatch = transcludedImageMatches[i];
 
-                    const [imageName, size] = imageMatch.substring(imageMatch.indexOf('[') + 2, imageMatch.indexOf(']')).split("|");
+        if (transcludedImageMatches) {
+            transcludedImageMatches.forEach((embed) => {
+                try {
+                    const embedText = embed.substring(embed.indexOf('[') + 2, embed.indexOf(']'));
+                    const [imageName, size] = embedText.split("|").filter((p) => p);
                     const imagePath = getLinkpath(imageName);
                     const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
                     const image = await this.vault.readBinary(linkedFile);
                     const imageBase64 = arrayBufferToBase64(image)
 
-                    const cmsImgPath = `/img/user/${linkedFile.path}`
-                    const name = size ? `${imageName}|${size}` : imageName;
-                    const imageMarkdown = `![${name}](${encodeURI(cmsImgPath)})`;
-                    assets.push({ path: cmsImgPath, content: imageBase64 })
-                    imageText = imageText.replace(imageMatch, imageMarkdown);
+                    const repoImagePath = `/public/${linkedFile.path}`
+                    assets.push({ path: repoImagePath, content: imageBase64 })
                 } catch (e) {
                     continue;
                 }
-            }
+            })
         }
 
         //![](image.png)
         const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif))\)/g;
         const imageMatches = text.match(imageRegex);
         if (imageMatches) {
-            for (let i = 0; i < imageMatches.length; i++) {
+            imageMatches.forEach((image) => {
                 try {
-                    const imageMatch = imageMatches[i];
-
+                    // TODO replace this with regex group matching
                     const nameStart = imageMatch.indexOf('[') + 1;
                     const nameEnd = imageMatch.indexOf(']');
                     const imageName = imageMatch.substring(nameStart, nameEnd);
@@ -879,6 +568,8 @@ export default class Publisher {
                     const pathStart = imageMatch.lastIndexOf("(") + 1;
                     const pathEnd = imageMatch.lastIndexOf(")");
                     const imagePath = imageMatch.substring(pathStart, pathEnd);
+                    // end
+
                     if (imagePath.startsWith("http")) {
                         continue;
                     }
@@ -887,14 +578,12 @@ export default class Publisher {
                     const linkedFile = this.metadataCache.getFirstLinkpathDest(decodedImagePath, filePath);
                     const image = await this.vault.readBinary(linkedFile);
                     const imageBase64 = arrayBufferToBase64(image);
-                    const cmsImgPath = `/img/user/${linkedFile.path}`
-                    const imageMarkdown = `![${imageName}](${cmsImgPath})`;
-                    assets.push({ path: cmsImgPath, content: imageBase64 })
-                    imageText = imageText.replace(imageMatch, imageMarkdown);
+                    const repoImagePath = `/public/${linkedFile.path}`
+                    assets.push({ path: repoImagePath, content: imageBase64 })
                 } catch {
                     continue;
                 }
-            }
+            })
         }
 
         return [imageText, assets];
