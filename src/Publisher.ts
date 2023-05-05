@@ -51,9 +51,13 @@ export default class Publisher {
             return false;
         }
         try {
+            console.log("publish() try")
             const [text, assets] = await this.generateMarkdown(file);
+            console.log("publish()", { text, assets })
             await this.uploadText(file.path, text);
+            console.log("publish() uploadText")
             await this.uploadAssets(assets);
+            console.log("publish() uploadAssets")
             return true;
         } catch {
             return false;
@@ -66,11 +70,13 @@ export default class Publisher {
         await this.uploadToGithub(path, content)
     }
 
+    // TODO types
+    // TODO can there be anything else in assets obj than assets.images?
     async uploadAssets(assets: any) {
+        console.log({ assets })
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
             await this.uploadImage(image.path, image.content);
-
         }
     }
 
@@ -167,6 +173,7 @@ export default class Publisher {
     /* ALL OTHER STUFF */
 
     async generateMarkdown(file: TFile): Promise<[string, any]> {
+        console.log("generateMarkdown() start")
         const assets: any = { images: [] };
         if (file.name.endsWith(".excalidraw.md")) {
             return [await this.generateExcalidrawMarkdown(file, true), assets];
@@ -537,7 +544,8 @@ export default class Publisher {
         const transcludedImageMatches = text.match(transcludedImageRegex);
 
         if (transcludedImageMatches) {
-            transcludedImageMatches.forEach((embed) => {
+            for (let i = 0; i < transclusionMatches.length; i++) {
+                const embed = transcludedImageMatches[i];
                 try {
                     const embedText = embed.substring(embed.indexOf('[') + 2, embed.indexOf(']'));
                     const [imageName, size] = embedText.split("|").filter((p) => p);
@@ -551,14 +559,15 @@ export default class Publisher {
                 } catch (e) {
                     continue;
                 }
-            })
+            }
         }
 
         //![](image.png)
         const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif))\)/g;
         const imageMatches = text.match(imageRegex);
         if (imageMatches) {
-            imageMatches.forEach((image) => {
+            for (let i = 0; i < transclusionMatches.length; i++) {
+                const imageMatch = imageMatches[i];
                 try {
                     // TODO replace this with regex group matching
                     const nameStart = imageMatch.indexOf('[') + 1;
@@ -583,10 +592,10 @@ export default class Publisher {
                 } catch {
                     continue;
                 }
-            })
+            }
         }
 
-        return [imageText, assets];
+        return assets;
     }
 
     generateTransclusionHeader(headerName: string, transcludedFile: TFile) {

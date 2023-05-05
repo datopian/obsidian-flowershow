@@ -264,6 +264,9 @@ export default class Flowershow extends Plugin {
 
 			if (publishSuccessful) {
 				new Notice(`Successfully published note to your garden.`);
+			} else {
+				// TODO figure out better way to handle this as this is duplicate of catch block message
+				new Notice("Unable to publish note, something went wrong.")
 			}
 			return publishSuccessful;
 
