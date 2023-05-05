@@ -34,8 +34,8 @@ export default class Publisher {
     excaliDrawRegex = /:\[\[(\d*?,\d*?)\],.*?\]\]/g;
 
     /* flowershow new */
-    notesRepoDir = "content";
-    assetsRepoDir = "public";
+    notesRepoPath = "content";
+    assetsRepoPath = "public";
 
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
@@ -81,7 +81,7 @@ export default class Publisher {
     }
 
     async uploadImage(filePath: string, content: string) {
-        const path = `public${filePath}`
+        const path = `${this.assetsRepoPath}/${filePath}`
         await this.uploadToGithub(path, content)
     }
 
@@ -180,11 +180,13 @@ export default class Publisher {
         }
 
         const text = await this.vault.cachedRead(file);
+        console.log("generateMarkdown()", { text })
         // text = await this.createBlockIDs(text);
         // text = await this.createTranscludedText(text, file.path, 0);
         // text = await this.convertDataViews(text, file.path);
         // text = await this.createSvgEmbeds(text, file.path);
         const images = await this.extractEmbeddedImagesPaths(text, file.path);
+        console.log("generateMarkdown()", { images })
         assets.images = images;
         return [text, assets];
     }
@@ -544,7 +546,8 @@ export default class Publisher {
         const transcludedImageMatches = text.match(transcludedImageRegex);
 
         if (transcludedImageMatches) {
-            for (let i = 0; i < transclusionMatches.length; i++) {
+            console.log("AAAAA")
+            for (let i = 0; i < transcludedImageMatches.length; i++) {
                 const embed = transcludedImageMatches[i];
                 try {
                     const embedText = embed.substring(embed.indexOf('[') + 2, embed.indexOf(']'));
@@ -554,8 +557,7 @@ export default class Publisher {
                     const image = await this.vault.readBinary(linkedFile);
                     const imageBase64 = arrayBufferToBase64(image)
 
-                    const repoImagePath = `/public/${linkedFile.path}`
-                    assets.push({ path: repoImagePath, content: imageBase64 })
+                    assets.push({ path: linkedFile.path, content: imageBase64 })
                 } catch (e) {
                     continue;
                 }
@@ -566,7 +568,7 @@ export default class Publisher {
         const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif))\)/g;
         const imageMatches = text.match(imageRegex);
         if (imageMatches) {
-            for (let i = 0; i < transclusionMatches.length; i++) {
+            for (let i = 0; i < imageMatches.length; i++) {
                 const imageMatch = imageMatches[i];
                 try {
                     // TODO replace this with regex group matching
@@ -587,8 +589,7 @@ export default class Publisher {
                     const linkedFile = this.metadataCache.getFirstLinkpathDest(decodedImagePath, filePath);
                     const image = await this.vault.readBinary(linkedFile);
                     const imageBase64 = arrayBufferToBase64(image);
-                    const repoImagePath = `/public/${linkedFile.path}`
-                    assets.push({ path: repoImagePath, content: imageBase64 })
+                    assets.push({ path: linkedFile.path, content: imageBase64 })
                 } catch {
                     continue;
                 }
