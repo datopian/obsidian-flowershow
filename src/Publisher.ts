@@ -48,7 +48,7 @@ export default class Publisher implements IPublisher {
         const images = await this.extractEmbeddedImagePaths(text, file.path);
 
         await this.uploadText(text, file.path);
-        await this.uploadAssets({ assets: images }); // TODO any other assets?
+        await this.uploadAssets({ images }); // TODO any other assets?
     }
 
     // DONE
@@ -112,6 +112,7 @@ export default class Publisher implements IPublisher {
         return await this.deleteFromGithub(path);
     }
 
+    // DONE
     private async uploadToGithub(path: string, content: string) {
         if (!validateSettings(this.settings)) {
             throw {}
@@ -128,21 +129,17 @@ export default class Publisher implements IPublisher {
         };
 
         try {
-            console.log("TRY")
             const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
                 owner: this.settings.githubUserName,
                 repo: this.settings.githubRepo,
                 path
             });
-            console.log({ response });
             if (response.status === 200 && response.data.type === "file") {
                 payload.message = `Update content ${path}`;
                 payload.sha = response.data.sha;
             }
-            console.log("BBBBBBB")
 
         } finally {
-            console.log("FINALLY")
             await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
         }
     }
@@ -175,6 +172,7 @@ export default class Publisher implements IPublisher {
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
+    // TODO is this needed
     private async extractImageLinks(text: string, filePath: string): Promise<string[]> {
         const assets = [];
 
@@ -231,7 +229,7 @@ export default class Publisher implements IPublisher {
         const assets = [];
 
         //![[image.png]]
-        const transcludedImageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif))\]\]/g;
+        const transcludedImageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif|svg))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif))\]\]/g;
         const transcludedImageMatches = text.match(transcludedImageRegex);
 
         if (transcludedImageMatches) {
@@ -253,7 +251,7 @@ export default class Publisher implements IPublisher {
         }
 
         //![](image.png)
-        const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif))\)/g;
+        const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif|svg))\)/g;
         const imageMatches = text.match(imageRegex);
         if (imageMatches) {
             for (let i = 0; i < imageMatches.length; i++) {
