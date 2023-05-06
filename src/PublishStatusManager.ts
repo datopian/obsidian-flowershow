@@ -14,20 +14,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
         this.publisher = publisher;
     }
 
-    async getDeletedNotePaths(): Promise<Array<string>> {
-        const remoteNoteHashes = await this.siteManager.getNoteHashes();
-        const marked = await this.publisher.getFilesMarkedForPublishing();
-        return this.getDeletedPaths(Object.keys(remoteNoteHashes), marked.notes.map((f) => f.path));
-    }
-
-    async getDeletedImagesPaths(): Promise<Array<string>> {
-        const remoteImageHashes = await this.siteManager.getImageHashes();
-        const marked = await this.publisher.getFilesMarkedForPublishing();
-        return this.getDeletedPaths(Object.keys(remoteImageHashes), marked.images);
-    }
-
     // DONE
-    // TODO better way to do this?
     async getPublishStatus(): Promise<PublishStatus> {
         const unpublishedNotes: Array<TFile> = [];
         const publishedNotes: Array<TFile> = [];
@@ -44,7 +31,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
                 unpublishedNotes.push(file);
             } else {
                 publishedNotes.push(file);
-                const [content, _] = await this.publisher.generateMarkdown(file);
+                const content = await this.publisher.prepareMarkdown(file);
                 const localHash = generateBlobHash(content);
                 if (remoteHash !== localHash) {
                     changedNotes.push(file);
@@ -79,6 +66,4 @@ export interface PublishStatus {
 
 export interface IPublishStatusManager {
     getPublishStatus(): Promise<PublishStatus>;
-    getDeletedNotePaths(): Promise<Array<string>>;
-    getDeletedImagesPaths(): Promise<Array<string>>;
 }

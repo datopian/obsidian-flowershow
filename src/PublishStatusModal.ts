@@ -44,9 +44,9 @@ export class PublishStatusModal {
         this.progressContainer = this.modal.contentEl.createEl("div", { attr: { style: "height: 30px;" } });
 
         [this.publishedCounter, this.publishedList] = this.createSection("Published", null, null);
-        [this.changedCounter, this.changedList] = this.createSection("Changed", "Update changed notes", async () => this.updateChangedFiles());
-        [this.deletedCounter, this.deletedList] = this.createSection("Deleted", "Delete notes from site", async () => this.deleteNotesFromSite());
+        [this.changedCounter, this.changedList] = this.createSection("Changed", "Update changed notes", async () => this.publishChangedNotes());
         [this.unpublishedCounter, this.unpublishedList] = this.createSection("Unpublished", "Publish unpublished notes", async () => this.publishUnpublishedNotes());
+        [this.deletedCounter, this.deletedList] = this.createSection("Deleted", "Delete notes from site", async () => this.unpublishNotes());
 
         this.modal.onOpen = () => this.initView();
         this.modal.onClose = () => this.clearStatus(); // TODO: is this even needed?
@@ -128,13 +128,37 @@ export class PublishStatusModal {
         this.unpublishedList.innerHTML = ``;
     }
 
-    private async updateChangedFiles() {
+    // DONE
+    private async publishUnpublishedNotes() {
+        const { unpublishedNotes } = this.publishStatus;
+
+        let counter = 0;
+
+        try {
+            for (const note of unpublishedNotes) {
+                this.progressContainer.innerText = `⌛ Publishing unpublished notes: ${counter + 1}/${unpublishedNotes.length}`;
+                await this.publisher.publishNote(note);
+                counter++;
+            }
+            this.progressContainer.innerText = `✅ Published all unpublished notes: ${counter}/${unpublishedNotes.length}`;
+
+        } catch (error) {
+            this.progressContainer.innerText = `❌ Error while publishing note ${unpublishedNotes[counter]}: ${error.message}`;
+        }
+
+        setTimeout(() => {
+            this.progressContainer.innerText = "";
+        }, 5000)
+        await this.refreshStatus();
+    }
+
+    private async publishChangedNotes() {
         const publishStatus = await this.publishStatusManager.getPublishStatus();
         const changed = publishStatus.changedNotes;
         let counter = 0;
         for (const note of changed) {
             this.progressContainer.innerText = `⌛ Publishing changed notes: ${++counter}/${changed.length}`;
-            await this.publisher.publish(note);
+            await this.publisher.publishNote(note);
         }
 
         const publishedText = `✅ Published all changed notes: ${counter}/${changed.length}`;
@@ -149,7 +173,7 @@ export class PublishStatusModal {
     }
 
     // DONE
-    private async deleteNotesFromSite() {
+    private async unpublishNotes() {
         const { deletedNotePaths } = this.publishStatus;
 
         let counter = 0;
@@ -157,7 +181,7 @@ export class PublishStatusModal {
         try {
             for (const note of deletedNotePaths) {
                 this.progressContainer.innerText = `⌛ Deleting Notes: ${counter + 1}/${deletedNotePaths.length}`;
-                await this.publisher.deleteNote(note);
+                await this.publisher.unpublishNote(note);
                 counter++;
             }
             this.progressContainer.innerText = `✅ Deleted all notes: ${counter}/${deletedNotePaths.length}`;
@@ -169,24 +193,6 @@ export class PublishStatusModal {
             this.progressContainer.innerText = "";
         }, 5000);
 
-        await this.refreshStatus();
-    }
-
-    private async publishUnpublishedNotes() {
-        const publishStatus = await this.publishStatusManager.getPublishStatus();
-        const unpublished = publishStatus.unpublishedNotes;
-        let counter = 0;
-        for (const note of unpublished) {
-            this.progressContainer.innerText = `⌛ Publishing unpublished notes: ${++counter}/${unpublished.length}`;
-            await this.publisher.publish(note);
-        }
-        const publishDoneText = `✅ Published all unpublished notes: ${counter}/${unpublished.length}`;
-        this.progressContainer.innerText = publishDoneText;
-        setTimeout(() => {
-            if (this.progressContainer.innerText === publishDoneText) {
-                this.progressContainer.innerText = "";
-            }
-        }, 5000)
         await this.refreshStatus();
     }
 }
