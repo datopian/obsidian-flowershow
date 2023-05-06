@@ -1,7 +1,7 @@
 import { App, Notice, Plugin, PluginSettingTab, ButtonComponent, addIcon, Modal, Events } from 'obsidian';
 import Publisher from 'src/Publisher';
 import FlowershowSettings from 'src/FlowershowSettings';
-import FlowershowSiteManager from 'src/FlowershowSiteManager';
+import SiteManager from 'src/SiteManager';
 import SettingView from 'src/SettingView';
 import { PublishStatusBar } from 'src/PublishStatusBar';
 import { seedling } from 'src/constants';
@@ -139,7 +139,7 @@ export default class Flowershow extends Plugin {
 					new Notice('Processing files to publish...');
 					const { vault, metadataCache } = this.app;
 					const publisher = new Publisher(vault, metadataCache, this.settings);
-					const siteManager = new FlowershowSiteManager(metadataCache, this.settings);
+					const siteManager = new SiteManager(metadataCache, this.settings);
 					const publishStatusManager = new PublishStatusManager(siteManager, publisher);
 
 					const publishStatus = await publishStatusManager.getPublishStatus();
@@ -233,7 +233,7 @@ export default class Flowershow extends Plugin {
 				return;
 			}
 
-			const siteManager = new FlowershowSiteManager(metadataCache, this.settings);
+			const siteManager = new SiteManager(metadataCache, this.settings);
 			const fullUrl = siteManager.getNoteUrl(currentFile);
 
 			await navigator.clipboard.writeText(fullUrl);
@@ -283,7 +283,7 @@ export default class Flowershow extends Plugin {
 
 	openPublishStatusModal() {
 		if (!this.publishStatusModal) {
-			const siteManager = new FlowershowSiteManager(this.app.metadataCache, this.settings);
+			const siteManager = new SiteManager(this.app.metadataCache, this.settings);
 			const publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
 			const publishStatusManager = new PublishStatusManager(siteManager, publisher);
 			this.publishStatusModal = new PublishStatusModal(this.app, publishStatusManager, publisher, this.settings);
@@ -302,7 +302,7 @@ class FlowershowSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 
 		if (!this.plugin.settings.noteSettingsIsInitialized) {
-			const siteManager = new FlowershowSiteManager(this.app.metadataCache, this.plugin.settings);
+			const siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
 			siteManager.updateEnv();
 			this.plugin.settings.noteSettingsIsInitialized = true;
 			this.plugin.saveData(this.plugin.settings);
@@ -322,7 +322,7 @@ class FlowershowSettingTab extends PluginSettingTab {
 			button.setDisabled(true);
 
 			try {
-				const siteManager = new FlowershowSiteManager(this.plugin.app.metadataCache, this.plugin.settings);
+				const siteManager = new SiteManager(this.plugin.app.metadataCache, this.plugin.settings);
 
 				const prUrl = await siteManager.createPullRequestWithSiteChanges()
 

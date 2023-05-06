@@ -2,10 +2,8 @@ import FlowershowSettings from './FlowershowSettings';
 import { ButtonComponent, Modal, Notice, Setting, App, TFile, debounce, MetadataCache, getIcon } from 'obsidian';
 import axios from "axios";
 import { Octokit } from '@octokit/core';
-import { Base64 } from 'js-base64';
 import { arrayBufferToBase64 } from './utils';
-import Flowershow from 'main';
-import FlowershowSiteManager from './FlowershowSiteManager';
+import SiteManager from './SiteManager';
 import { SvgFileSuggest } from './ui/file-suggest';
 
 export default class SettingView {
@@ -449,7 +447,7 @@ export default class SettingView {
             new Notice(`The ${theme.name} theme doesn't support ${baseTheme} mode.`)
             return;
         }
-        const gardenManager = new FlowershowSiteManager(this.app.metadataCache, this.settings)
+        const gardenManager = new SiteManager(this.app.metadataCache, this.settings)
         await gardenManager.updateEnv();
 
         new Notice("Successfully applied settings");
@@ -459,7 +457,7 @@ export default class SettingView {
         const octokit = new Octokit({ auth: settings.githubToken });
         let updateFailed = false;
         try {
-            const gardenManager = new FlowershowSiteManager(metadataCache, settings)
+            const gardenManager = new SiteManager(metadataCache, settings)
             await gardenManager.updateEnv();
         } catch {
             new Notice("Failed to update settings. Make sure you have an internet connection.")

@@ -154,6 +154,7 @@ export class PublishStatusModal {
             this.unpublishedContainer.removeChild(this.unpublishedContainer.lastElementChild);
         }
     }
+
     async populateStatus() {
         this.progressContainer.innerText = `⌛ Loading publication status`;
         const publishStatus = await this.publishStatusManager.getPublishStatus();
