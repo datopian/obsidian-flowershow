@@ -5,9 +5,21 @@ import { IPublisher } from "./Publisher";
 import { generateBlobHash } from "./utils";
 
 
+export interface PublishStatus {
+    unpublishedNotes: Array<TFile>;
+    publishedNotes: Array<TFile>;
+    changedNotes: Array<TFile>;
+    deletedNotePaths: Array<string>;
+    deletedImagePaths: Array<string>;
+}
+
+export interface IPublishStatusManager {
+    getPublishStatus(): Promise<PublishStatus>;
+}
+
 export default class PublishStatusManager implements IPublishStatusManager {
-    siteManager: ISiteManager;
-    publisher: IPublisher;
+    private siteManager: ISiteManager;
+    private publisher: IPublisher;
 
     constructor(siteManager: ISiteManager, publisher: IPublisher) {
         this.siteManager = siteManager;
@@ -54,16 +66,4 @@ export default class PublishStatusManager implements IPublishStatusManager {
     private getDeletedPaths(remotePaths: Array<string>, localPaths: Array<string>): Array<string> {
         return remotePaths.filter((p) => !localPaths.includes(p))
     }
-}
-
-export interface PublishStatus {
-    unpublishedNotes: Array<TFile>;
-    publishedNotes: Array<TFile>;
-    changedNotes: Array<TFile>;
-    deletedNotePaths: Array<string>;
-    deletedImagePaths: Array<string>;
-}
-
-export interface IPublishStatusManager {
-    getPublishStatus(): Promise<PublishStatus>;
 }

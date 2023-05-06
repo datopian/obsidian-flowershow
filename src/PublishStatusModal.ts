@@ -1,30 +1,34 @@
-import { App, ButtonComponent, Modal, Notice } from "obsidian";
+import { App, ButtonComponent, Modal } from "obsidian";
 
 import FlowershowSettings from "src/FlowershowSettings";
 import { IPublisher } from "./Publisher";
 import { IPublishStatusManager, PublishStatus } from "./PublishStatusManager";
 
 
-export class PublishStatusModal {
-    modal: Modal;
-    settings: FlowershowSettings;
-    publishStatusManager: IPublishStatusManager;
-    publisher: IPublisher;
-    publishStatus: PublishStatus;
+export interface IPublishStatusModal {
+    open(): void;
+}
 
-    publishedList: HTMLElement;
-    publishedCounter: HTMLElement;
-    changedList: HTMLElement;
-    changedCounter: HTMLElement;
-    deletedList: HTMLElement;
-    deletedCounter: HTMLElement;
-    unpublishedList: HTMLElement;
-    unpublishedCounter: HTMLElement;
-    progressContainer: HTMLElement;
+export class PublishStatusModal implements IPublishStatusModal {
+    private modal: Modal;
+    // private settings: FlowershowSettings;
+    private publishStatusManager: IPublishStatusManager;
+    private publisher: IPublisher;
+    private publishStatus: PublishStatus;
+
+    private publishedList: HTMLElement;
+    private publishedCounter: HTMLElement;
+    private changedList: HTMLElement;
+    private changedCounter: HTMLElement;
+    private deletedList: HTMLElement;
+    private deletedCounter: HTMLElement;
+    private unpublishedList: HTMLElement;
+    private unpublishedCounter: HTMLElement;
+    private progressContainer: HTMLElement;
 
     constructor(app: App, publishStatusManager: IPublishStatusManager, publisher: IPublisher, settings: FlowershowSettings) {
         this.modal = new Modal(app);
-        this.settings = settings;
+        // this.settings = settings;
         this.publishStatusManager = publishStatusManager;
         this.publisher = publisher;
 
@@ -37,7 +41,7 @@ export class PublishStatusModal {
     }
 
     // DONE
-    async initialize() {
+    private async initialize() {
         this.modal.titleEl.innerText = "🌷 Flowershow";
         this.modal.contentEl.addClass("digital-garden-publish-status-view");
         this.modal.contentEl.createEl("h2", { text: "Publication Status" });
@@ -152,6 +156,7 @@ export class PublishStatusModal {
         await this.refreshStatus();
     }
 
+    // DONE
     private async publishChangedNotes() {
         const publishStatus = await this.publishStatusManager.getPublishStatus();
         const changed = publishStatus.changedNotes;

@@ -1,9 +1,11 @@
+// TODO review this file
 export class PublishStatusBar {
-    statusBarItem: HTMLElement;
     counter: number;
     numberOfNotesToPublish: number;
 
+    statusBarItem: HTMLElement;
     status: HTMLElement;
+
     constructor(statusBarItem: HTMLElement, numberOfNotesToPublish: number) {
         this.statusBarItem = statusBarItem;
         this.counter = 0;
@@ -27,7 +29,7 @@ export class PublishStatusBar {
 
     }
 
-    error(){
+    error() {
         this.statusBarItem.remove();
     }
 }
