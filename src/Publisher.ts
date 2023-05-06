@@ -80,9 +80,10 @@ export default class Publisher {
         await this.uploadToGithub(path, content)
     }
 
+    // DONE
     async deleteNote(vaultFilePath: string) {
-        const path = `src/site/notes/${vaultFilePath}`;
-        return await this.deleteFromGtihub(path);
+        const path = `content/${vaultFilePath}`;
+        await this.deleteFromGtihub(path);
     }
 
     async deleteImage(vaultFilePath: string) {
@@ -125,13 +126,13 @@ export default class Publisher {
 
     }
 
-    async deleteFromGtihub(path: string): Promise<boolean> {
+    // DONE
+    async deleteFromGtihub(path: string) {
         if (!validateSettings(this.settings)) {
             throw {}
         }
 
         const octokit = new Octokit({ auth: this.settings.githubToken });
-
         const payload = {
             owner: this.settings.githubUserName,
             repo: this.settings.githubRepo,
@@ -140,29 +141,17 @@ export default class Publisher {
             sha: ''
         };
 
-        try {
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                path
-            });
-            if (response.status === 200 && response.data.type === "file") {
-                payload.sha = response.data.sha;
-            }
-        } catch (e) {
-            console.log(e)
-            return false;
+        const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner: this.settings.githubUserName,
+            repo: this.settings.githubRepo,
+            path
+        });
+
+        if (response.status === 200 && response.data.type === "file") {
+            payload.sha = response.data.sha;
         }
 
-
-
-        try {
-            const response = await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
-        } catch (e) {
-            console.log(e)
-            return false
-        }
-        return true;
+        await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
     /* ALL OTHER STUFF */

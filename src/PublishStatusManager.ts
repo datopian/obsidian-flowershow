@@ -26,6 +26,8 @@ export default class PublishStatusManager implements IPublishStatusManager {
         return this.getDeletedPaths(Object.keys(remoteImageHashes), marked.images);
     }
 
+    // DONE
+    // TODO better way to do this?
     async getPublishStatus(): Promise<PublishStatus> {
         const unpublishedNotes: Array<TFile> = [];
         const publishedNotes: Array<TFile> = [];
