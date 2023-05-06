@@ -3,7 +3,7 @@ import { App, ButtonComponent, Modal } from "obsidian";
 import { IPublisher } from "./Publisher";
 import { IPublishStatusManager } from "./PublishStatusManager";
 
-export class PublishModal {
+export class PublishStatusModal {
     modal: Modal;
     settings: FlowershowSettings;
     publishStatusManager: IPublishStatusManager;
@@ -66,7 +66,7 @@ export class PublishModal {
     }
 
     async initialize() {
-        this.modal.titleEl.innerText = "🌱 Digital Garden";
+        this.modal.titleEl.innerText = "🌷 Flowershow";
 
         this.modal.contentEl.addClass("digital-garden-publish-status-view");
         this.modal.contentEl.createEl("h2", { text: "Publication Status" });
@@ -154,7 +154,7 @@ export class PublishModal {
             this.unpublishedContainer.removeChild(this.unpublishedContainer.lastElementChild);
         }
     }
-    async populateWithNotes() {
+    async populateStatus() {
         this.progressContainer.innerText = `⌛ Loading publication status`;
         const publishStatus = await this.publishStatusManager.getPublishStatus();
         this.progressContainer.innerText = ``;
@@ -170,7 +170,7 @@ export class PublishModal {
 
     private async refreshView() {
         this.clearView();
-        await this.populateWithNotes();
+        await this.populateStatus();
     }
 
     open() {

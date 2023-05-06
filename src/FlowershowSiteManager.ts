@@ -119,10 +119,10 @@ export default class FlowershowSiteManager implements IFlowershowSiteManager {
 
         const files = response.data.tree;
         const notes: Array<{ path: string, sha: string }> = files.filter(
-            (x: { path: string; type: string; }) => x.path.startsWith("src/site/notes/") && x.type === "blob" && x.path !== "src/site/notes/notes.json");
+            (x: { path: string; type: string; }) => x.path.startsWith("content/") && x.type === "blob" && x.path !== "content/config.mjs");
         const hashes: { [key: string]: string } = {};
         for (const note of notes) {
-            const vaultPath = note.path.replace("src/site/notes/", "");
+            const vaultPath = note.path.replace("content/", "");
             hashes[vaultPath] = note.sha;
         }
         return hashes;
@@ -139,10 +139,10 @@ export default class FlowershowSiteManager implements IFlowershowSiteManager {
 
         const files = response.data.tree;
         const images: Array<{ path: string, sha: string }> = files.filter(
-            (x: { path: string; type: string; }) => x.path.startsWith("src/site/img/user/") && x.type === "blob");
+            (x: { path: string; type: string; }) => x.path.startsWith("public/") && x.type === "blob");
         const hashes: { [key: string]: string } = {};
         for (const img of images) {
-            const vaultPath = decodeURI(img.path.replace("src/site/img/user/", ""));
+            const vaultPath = decodeURI(img.path.replace("public/", ""));
             hashes[vaultPath] = img.sha;
         }
         return hashes;

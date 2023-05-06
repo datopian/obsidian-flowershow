@@ -51,13 +51,9 @@ export default class Publisher {
             return false;
         }
         try {
-            console.log("publish() try")
             const [text, assets] = await this.generateMarkdown(file);
-            console.log("publish()", { text, assets })
             await this.uploadText(file.path, text);
-            console.log("publish() uploadText")
             await this.uploadAssets(assets);
-            console.log("publish() uploadAssets")
             return true;
         } catch {
             return false;
@@ -71,9 +67,8 @@ export default class Publisher {
     }
 
     // TODO types
-    // TODO can there be anything else in assets obj than assets.images?
     async uploadAssets(assets: any) {
-        console.log({ assets })
+        // TODO can there be anything else in assets obj than assets.images?
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
             await this.uploadImage(image.path, image.content);
@@ -173,20 +168,17 @@ export default class Publisher {
     /* ALL OTHER STUFF */
 
     async generateMarkdown(file: TFile): Promise<[string, any]> {
-        console.log("generateMarkdown() start")
         const assets: any = { images: [] };
         if (file.name.endsWith(".excalidraw.md")) {
             return [await this.generateExcalidrawMarkdown(file, true), assets];
         }
 
         const text = await this.vault.cachedRead(file);
-        console.log("generateMarkdown()", { text })
         // text = await this.createBlockIDs(text);
         // text = await this.createTranscludedText(text, file.path, 0);
         // text = await this.convertDataViews(text, file.path);
         // text = await this.createSvgEmbeds(text, file.path);
         const images = await this.extractEmbeddedImagesPaths(text, file.path);
-        console.log("generateMarkdown()", { images })
         assets.images = images;
         return [text, assets];
     }
@@ -452,7 +444,7 @@ export default class Publisher {
 
     /* MISCELLANEOUS */
 
-    // Used in PublishStatusManager
+    // Get all notes marked with 'dgpublish'
     async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
@@ -546,7 +538,6 @@ export default class Publisher {
         const transcludedImageMatches = text.match(transcludedImageRegex);
 
         if (transcludedImageMatches) {
-            console.log("AAAAA")
             for (let i = 0; i < transcludedImageMatches.length; i++) {
                 const embed = transcludedImageMatches[i];
                 try {

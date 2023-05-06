@@ -5,7 +5,7 @@ import FlowershowSiteManager from 'src/FlowershowSiteManager';
 import SettingView from 'src/SettingView';
 import { PublishStatusBar } from 'src/PublishStatusBar';
 import { seedling } from 'src/constants';
-import { PublishModal } from 'src/PublishModal';
+import { PublishStatusModal } from 'src/PublishStatusModal';
 import PublishStatusManager from 'src/PublishStatusManager';
 import ObsidianFrontMatterEngine from 'src/ObsidianFrontMatterEngine';
 
@@ -59,7 +59,7 @@ export default class Flowershow extends Plugin {
 	appVersion: string;
 	settings: FlowershowSettings;
 
-	publishModal: PublishModal;
+	publishStatusModal: PublishStatusModal;
 
 	async onload() {
 		this.appVersion = this.manifest.version;
@@ -73,7 +73,7 @@ export default class Flowershow extends Plugin {
 
 		addIcon('digital-garden-icon', seedling);
 		this.addRibbonIcon("digital-garden-icon", "Digital Garden Publication Center", async () => {
-			this.openPublishModal();
+			this.openPublishStatusModal();
 		});
 
 
@@ -210,7 +210,7 @@ export default class Flowershow extends Plugin {
 			id: 'dg-open-publish-modal',
 			name: 'Open Publication Center',
 			callback: async () => {
-				this.openPublishModal();
+				this.openPublishStatusModal();
 			}
 		});
 
@@ -281,14 +281,14 @@ export default class Flowershow extends Plugin {
 		engine.set("dgpublish", true).apply();
 	}
 
-	openPublishModal() {
-		if (!this.publishModal) {
+	openPublishStatusModal() {
+		if (!this.publishStatusModal) {
 			const siteManager = new FlowershowSiteManager(this.app.metadataCache, this.settings);
 			const publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
 			const publishStatusManager = new PublishStatusManager(siteManager, publisher);
-			this.publishModal = new PublishModal(this.app, publishStatusManager, publisher, this.settings);
+			this.publishStatusModal = new PublishStatusModal(this.app, publishStatusManager, publisher, this.settings);
 		}
-		this.publishModal.open();
+		this.publishStatusModal.open();
 	}
 
 }
