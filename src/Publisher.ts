@@ -172,70 +172,23 @@ export default class Publisher implements IPublisher {
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
-    // TODO is this needed
-    private async extractImageLinks(text: string, filePath: string): Promise<string[]> {
-        const assets = [];
-
-        const imageText = text;
-        //![[image.png]]
-        const transcludedImageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif))\]\]/g;
-        const transcludedImageMatches = text.match(transcludedImageRegex);
-        if (transcludedImageMatches) {
-            for (let i = 0; i < transcludedImageMatches.length; i++) {
-                try {
-                    const imageMatch = transcludedImageMatches[i];
-
-                    const [imageName, _] = imageMatch.substring(imageMatch.indexOf('[') + 2, imageMatch.indexOf(']')).split("|");
-                    const imagePath = getLinkpath(imageName);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    assets.push(linkedFile.path)
-                } catch (e) {
-                    continue;
-                }
-            }
-        }
-
-        //![](image.png)
-        const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif))\)/g;
-        const imageMatches = text.match(imageRegex);
-        if (imageMatches) {
-            for (let i = 0; i < imageMatches.length; i++) {
-                try {
-                    const imageMatch = imageMatches[i];
-
-                    const nameStart = imageMatch.indexOf('[') + 1;
-                    const nameEnd = imageMatch.indexOf(']');
-
-                    const pathStart = imageMatch.lastIndexOf("(") + 1;
-                    const pathEnd = imageMatch.lastIndexOf(")");
-                    const imagePath = imageMatch.substring(pathStart, pathEnd);
-                    if (imagePath.startsWith("http")) {
-                        continue;
-                    }
-
-                    const decodedImagePath = decodeURI(imagePath);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(decodedImagePath, filePath);
-                    assets.push(linkedFile.path)
-                } catch {
-                    continue;
-                }
-            }
-        }
-        return assets;
+    private async readTFileToBase64(file: TFile): Promise<string> {
+        const image = await this.vault.readBinary(file);
+        const imageBase64 = arrayBufferToBase64(image)
+        return imageBase64;
     }
 
-    // DONE
-    private async extractEmbeddedImagePaths(text: string, filePath: string): Promise<Array<{ path: string, content: string }>> {
-        const assets = [];
+    private async extractEmbeddedFiles(text: string, filePath: string): Promise<Array<string>> {
+        const embeddedFilesPaths = [];
 
-        //![[image.png]]
-        const transcludedImageRegex = /!\[\[(.*?)(\.(png|jpg|jpeg|gif|svg))\|(.*?)\]\]|!\[\[(.*?)(\.(png|jpg|jpeg|gif))\]\]/g;
-        const transcludedImageMatches = text.match(transcludedImageRegex);
+        //![[image.png]] TODO check this regex
+        const embeddedImageRegex = /!\[\[(.*?)\.(png|webp|jpg|jpeg|gif|bmp|svg)(?:\|(.*?))?\]\]/g;
+        const embeddedImageMatches = text.match(embeddedImageRegex);
 
-        if (transcludedImageMatches) {
-            for (let i = 0; i < transcludedImageMatches.length; i++) {
-                const embed = transcludedImageMatches[i];
+        if (embeddedImageMatches) {
+            for (let i = 0; i < embeddedFilesPaths.length; i++) {
                 try {
+                    const embed = embeddedImageMatches[i];
                     const embedText = embed.substring(embed.indexOf('[') + 2, embed.indexOf(']'));
                     const [imageName, size] = embedText.split("|").filter((p) => p);
                     const imagePath = getLinkpath(imageName);
@@ -250,13 +203,13 @@ export default class Publisher implements IPublisher {
             }
         }
 
-        //![](image.png)
-        const imageRegex = /!\[(.*?)\]\((.*?)(\.(png|jpg|jpeg|gif|svg))\)/g;
+        //![](image.png) TODO check this regex
+        const imageRegex = /!\[(.*?)\]\((.*?)\.(png|webp|jpg|jpeg|gif|bmp|svg)\)/g;
         const imageMatches = text.match(imageRegex);
         if (imageMatches) {
             for (let i = 0; i < imageMatches.length; i++) {
-                const imageMatch = imageMatches[i];
                 try {
+                    const imageMatch = imageMatches[i];
                     // TODO replace this with regex group matching
                     const nameStart = imageMatch.indexOf('[') + 1;
                     const nameEnd = imageMatch.indexOf(']');
