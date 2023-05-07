@@ -35,7 +35,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
         const remoteNoteHashes = await this.siteManager.getNoteHashes();
         const remoteImageHashes = await this.siteManager.getImageHashes();
 
-        const { notes, images } = await this.publisher.getFilesMarkedForPublishing();
+        const { notes, assets } = await this.publisher.getFilesMarkedForPublishing();
 
         for (const file of notes) {
             const remoteHash = remoteNoteHashes[file.path];
@@ -52,7 +52,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
         }
 
         const deletedNotePaths = this.getDeletedPaths(Object.keys(remoteNoteHashes), notes.map((f) => f.path));
-        const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteImageHashes), images);
+        const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteImageHashes), assets);
 
         unpublishedNotes.sort();
         publishedNotes.sort();

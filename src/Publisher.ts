@@ -11,7 +11,7 @@ import { validatePublishFrontmatter, validateSettings } from "./Validator";
 
 export interface MarkedForPublishing {
     notes: TFile[],
-    images: string[]
+    assets: string[]
 }
 
 export interface IPublisher {
@@ -37,18 +37,18 @@ export default class Publisher implements IPublisher {
         // this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
     }
 
-    /* PUBLIC METHODS */
-
     // DONE
     async publishNote(file: TFile) {
         if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
             throw {}
         }
         const text = await this.prepareMarkdown(file);
-        const images = await this.extractEmbeddedImagePaths(text, file.path);
+        const assets = await this.prepareAssociatedAssets(text, file.path);
+
+        console.log({ assets })
 
         await this.uploadText(text, file.path);
-        await this.uploadAssets({ images }); // TODO any other assets?
+        await this.uploadAssets(assets);
     }
 
     // DONE
@@ -70,19 +70,22 @@ export default class Publisher implements IPublisher {
     async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
-        const imagesToPublish: Set<string> = new Set();
+        const assetsToPublish: Set<string> = new Set();
+
         for (const file of files) {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
             if (frontMatter && frontMatter["dgpublish"] === true) {
                 notesToPublish.push(file);
-                const images = await this.extractImageLinks(await this.vault.cachedRead(file), file.path);
-                images.forEach((i) => imagesToPublish.add(i));
+                const text = await this.vault.cachedRead(file);
+                const images = await this.extractEmbeddedImageFiles(text, file.path);
+                Object.keys(images).forEach((i) => assetsToPublish.add(i));
+                // ... other assets?
             }
         }
 
         return {
             notes: notesToPublish,
-            images: Array.from(imagesToPublish)
+            assets: Array.from(assetsToPublish)
         };
     }
 
@@ -96,6 +99,7 @@ export default class Publisher implements IPublisher {
     private async uploadAssets(assets: any) {
         // TODO types
         // TODO can there be anything else in assets obj than assets.images?
+        // TODO check if assets already published?
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
             await this.uploadImage(image.path, image.content);
@@ -139,9 +143,10 @@ export default class Publisher implements IPublisher {
                 payload.sha = response.data.sha;
             }
 
-        } finally {
-            await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
+        } catch {
+            // don't fail, file just doesn't exist in the repo yet
         }
+        await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
     // DONE
@@ -171,71 +176,89 @@ export default class Publisher implements IPublisher {
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
+    private async prepareAssociatedAssets(text: string, filePath: string) {
+        const assets: { images: Array<{ path: string, content: string }> } = {
+            images: [],
+            // ... other assets
+        };
 
-    private async readTFileToBase64(file: TFile): Promise<string> {
+        const imagePathsToTFilesMap = await this.extractEmbeddedImageFiles(text, filePath);
+        console.log({ imagePathsToTFilesMap })
+
+        for (const path in imagePathsToTFilesMap) {
+            const image = imagePathsToTFilesMap[path];
+            assets.images.push({
+                path,
+                content: await this.readImageToBase64(image)
+            });
+
+        }
+        return assets;
+    }
+
+    private async readImageToBase64(file: TFile): Promise<string> {
         const image = await this.vault.readBinary(file);
         const imageBase64 = arrayBufferToBase64(image)
         return imageBase64;
     }
 
-    private async extractEmbeddedFiles(text: string, filePath: string): Promise<Array<string>> {
-        const embeddedFilesPaths = [];
+    private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
+        const embeddedImageFiles: { [path: string]: TFile } = {};
 
-        //![[image.png]] TODO check this regex
-        const embeddedImageRegex = /!\[\[(.*?)\.(png|webp|jpg|jpeg|gif|bmp|svg)(?:\|(.*?))?\]\]/g;
-        const embeddedImageMatches = text.match(embeddedImageRegex);
+        //![[image.png]]
+        const embeddedImageRegex = /!\[\[(.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))(?:\|(.*?))?\]\]/g;
+        const embeddedImageMatches = [...text.matchAll(embeddedImageRegex)];
+
+        console.log({ embeddedImageMatches })
 
         if (embeddedImageMatches) {
-            for (let i = 0; i < embeddedFilesPaths.length; i++) {
+            for (let i = 0; i < embeddedImageMatches.length; i++) {
                 try {
-                    const embed = embeddedImageMatches[i];
-                    const embedText = embed.substring(embed.indexOf('[') + 2, embed.indexOf(']'));
-                    const [imageName, size] = embedText.split("|").filter((p) => p);
-                    const imagePath = getLinkpath(imageName);
+                    // `path` below can be a full path or Obsidian-style shortened path, i.e. just a file name with extension
+                    // const [, path, extension, size = null] = embeddedImageMatches[i];
+                    const [, path] = embeddedImageMatches[i];
+                    console.log({ path })
+                    const imagePath = getLinkpath(path);
+                    console.log({ imagePath })
                     const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    const image = await this.vault.readBinary(linkedFile);
-                    const imageBase64 = arrayBufferToBase64(image)
+                    console.log({ linkedFile })
 
-                    assets.push({ path: linkedFile.path, content: imageBase64 })
-                } catch (e) {
-                    continue;
-                }
-            }
-        }
-
-        //![](image.png) TODO check this regex
-        const imageRegex = /!\[(.*?)\]\((.*?)\.(png|webp|jpg|jpeg|gif|bmp|svg)\)/g;
-        const imageMatches = text.match(imageRegex);
-        if (imageMatches) {
-            for (let i = 0; i < imageMatches.length; i++) {
-                try {
-                    const imageMatch = imageMatches[i];
-                    // TODO replace this with regex group matching
-                    const nameStart = imageMatch.indexOf('[') + 1;
-                    const nameEnd = imageMatch.indexOf(']');
-                    const imageName = imageMatch.substring(nameStart, nameEnd);
-
-                    const pathStart = imageMatch.lastIndexOf("(") + 1;
-                    const pathEnd = imageMatch.lastIndexOf(")");
-                    const imagePath = imageMatch.substring(pathStart, pathEnd);
-                    // end
-
-                    if (imagePath.startsWith("http")) {
-                        continue;
+                    if (!embeddedImageFiles[linkedFile.path]) {
+                        embeddedImageFiles[linkedFile.path] = linkedFile;
                     }
-
-                    const decodedImagePath = decodeURI(imagePath);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(decodedImagePath, filePath);
-                    const image = await this.vault.readBinary(linkedFile);
-                    const imageBase64 = arrayBufferToBase64(image);
-                    assets.push({ path: linkedFile.path, content: imageBase64 })
                 } catch {
                     continue;
                 }
             }
         }
 
-        return assets;
+        //![](image.png) TODO check this regex
+        const imageRegex = /!\[.*?\]\((.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))\)/g;
+        const imageMatches = [...text.matchAll(imageRegex)];
+
+        if (imageMatches) {
+            for (let i = 0; i < imageMatches.length; i++) {
+                try {
+                    // const [, path, extension] = imageMatches[i];
+                    const [, path] = imageMatches[i];
+
+                    if (path.startsWith("http")) {
+                        continue;
+                    }
+
+                    // const decodedImagePath = decodeURI(imagePath);
+                    const imagePath = getLinkpath(path);
+                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
+                    if (!embeddedImageFiles[linkedFile.path]) {
+                        embeddedImageFiles[linkedFile.path] = linkedFile;
+                    }
+                } catch {
+                    continue;
+                }
+            }
+        }
+
+        return embeddedImageFiles;
     }
 
     // private async generateExcalidrawMarkdown(file: TFile, includeExcaliDrawJs: boolean, idAppendage = "", includeFrontMatter = true): Promise<string> {
