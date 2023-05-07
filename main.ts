@@ -100,13 +100,13 @@ export default class Flowershow extends Plugin {
 		// 	}
 		// });
 
-		this.addCommand({
-			id: 'copy-garden-url',
-			name: 'Copy Garden URL',
-			callback: async () => {
-				this.copyNoteUrlToClipboard();
-			}
-		});
+		// this.addCommand({
+		// 	id: 'copy-garden-url',
+		// 	name: 'Copy Garden URL',
+		// 	callback: async () => {
+		// 		this.copyNoteUrlToClipboard();
+		// 	}
+		// });
 	}
 
 	// DONE
@@ -177,23 +177,23 @@ export default class Flowershow extends Plugin {
 		}
 	}
 
-	async copyNoteUrlToClipboard() {
-		try {
-			const currentFile = this.app.workspace.getActiveFile();
-			if (!currentFile) {
-				new Notice("No file is open/active. Please open a file and try again.")
-				return;
-			}
+	// async copyNoteUrlToClipboard() {
+	// 	try {
+	// 		const currentFile = this.app.workspace.getActiveFile();
+	// 		if (!currentFile) {
+	// 			new Notice("No file is open/active. Please open a file and try again.")
+	// 			return;
+	// 		}
 
-			const fullUrl = this.siteManager.getNoteUrl(currentFile);
+	// 		const fullUrl = this.siteManager.getNoteUrl(currentFile);
 
-			await navigator.clipboard.writeText(fullUrl);
-			new Notice(`Note URL copied to clipboard`);
-		} catch (e) {
-			console.log(e)
-			new Notice("Unable to copy note URL to clipboard, something went wrong.")
-		}
-	}
+	// 		await navigator.clipboard.writeText(fullUrl);
+	// 		new Notice(`Note URL copied to clipboard`);
+	// 	} catch (e) {
+	// 		console.log(e)
+	// 		new Notice("Unable to copy note URL to clipboard, something went wrong.")
+	// 	}
+	// }
 
 	// async addPublishFlag() {
 	// 	const engine = new ObsidianFrontMatterEngine(this.app.vault, this.app.metadataCache, this.app.workspace.getActiveFile());
