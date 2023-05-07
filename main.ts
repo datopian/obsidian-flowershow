@@ -97,6 +97,14 @@ export default class Flowershow extends Plugin {
 	async addCommands() {
 
 		this.addCommand({
+			id: 'publish-note',
+			name: 'Publish Single Note',
+			callback: async () => {
+				await this.publishSingleNote();
+			}
+		});
+
+		this.addCommand({
 			id: 'quick-publish-and-share-note',
 			name: 'Quick Publish And Share Note',
 			callback: async () => {
@@ -118,14 +126,6 @@ export default class Flowershow extends Plugin {
 					this.app.metadataCache.offref(event);
 				}, 5000);
 
-			}
-		});
-
-		this.addCommand({
-			id: 'publish-note',
-			name: 'Publish Single Note',
-			callback: async () => {
-				await this.publishSingleNote();
 			}
 		});
 
@@ -224,6 +224,33 @@ export default class Flowershow extends Plugin {
 
 	}
 
+	async publishSingleNote() {
+		try {
+			const { vault, workspace, metadataCache } = this.app;
+
+			const currentFile = workspace.getActiveFile();
+			if (!currentFile) {
+				new Notice("No file is open/active. Please open a file and try again.")
+				return;
+			}
+
+			if (currentFile.extension !== 'md') {
+				new Notice("The current file is not a markdown file. Please open a markdown file and try again.")
+				return;
+			}
+
+			new Notice("Publishing note...");
+			const publisher = new Publisher(vault, metadataCache, this.settings);
+
+			await publisher.publishNote(currentFile);
+			new Notice(`✅ Successfully published note to your Flowershow site.`);
+
+		} catch (e) {
+			console.error(e)
+			new Notice("❌ Unable to publish note, something went wrong.")
+		}
+	}
+
 	async copyGardenUrlToClipboard() {
 		try {
 			const { metadataCache, workspace } = this.app;
@@ -244,38 +271,6 @@ export default class Flowershow extends Plugin {
 		}
 	}
 
-	async publishSingleNote() {
-		try {
-			const { vault, workspace, metadataCache } = this.app;
-
-			const currentFile = workspace.getActiveFile();
-			if (!currentFile) {
-				new Notice("No file is open/active. Please open a file and try again.")
-				return;
-			}
-			if (currentFile.extension !== 'md') {
-				new Notice("The current file is not a markdown file. Please open a markdown file and try again.")
-				return;
-			}
-
-			new Notice("Publishing note...");
-			const publisher = new Publisher(vault, metadataCache, this.settings);
-			const publishSuccessful = await publisher.publish(currentFile);
-
-			if (publishSuccessful) {
-				new Notice(`Successfully published note to your garden.`);
-			} else {
-				// TODO figure out better way to handle this as this is duplicate of catch block message
-				new Notice("Unable to publish note, something went wrong.")
-			}
-			return publishSuccessful;
-
-		} catch (e) {
-			console.error(e)
-			new Notice("Unable to publish note, something went wrong.")
-			return false;
-		}
-	}
 	async addPublishFlag() {
 		const engine = new ObsidianFrontMatterEngine(this.app.vault, this.app.metadataCache, this.app.workspace.getActiveFile());
 		engine.set("dgpublish", true).apply();

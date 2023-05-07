@@ -42,20 +42,17 @@ export default class Publisher implements IPublisher {
         if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
             throw {}
         }
-        const text = await this.prepareMarkdown(file);
-        const assets = await this.prepareAssociatedAssets(text, file.path);
+        const markdown = await this.prepareMarkdown(file);
+        const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
-        console.log({ assets })
-
-        await this.uploadText(text, file.path);
+        await this.uploadMarkdown(markdown, file.path);
         await this.uploadAssets(assets);
     }
 
     // DONE
-    async unpublishNote(vaultFilePath: string) {
-        const path = `${this.notesRepoPath}/${vaultFilePath}`;
-        await this.deleteFromGithub(path);
-        // TODO: what about associated images?
+    async unpublishNote(notePath: string) {
+        await this.deleteMarkdown(notePath);
+        await this.deleteAssets(notePath);
     }
 
     // DONE
@@ -67,6 +64,7 @@ export default class Publisher implements IPublisher {
         return await this.vault.cachedRead(file);
     }
 
+    // DONE
     async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
@@ -90,12 +88,18 @@ export default class Publisher implements IPublisher {
     }
 
     // DONE
-    private async uploadText(content: string, filePath: string) {
+    private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
         const path = `${this.notesRepoPath}/${filePath}`
         await this.uploadToGithub(path, content)
     }
 
+    private async deleteMarkdown(filePath: string) {
+        const path = `${this.notesRepoPath}/${filePath}`
+        await this.deleteFromGithub(path)
+    }
+
+    // DONE
     private async uploadAssets(assets: any) {
         // TODO types
         // TODO can there be anything else in assets obj than assets.images?
@@ -106,13 +110,23 @@ export default class Publisher implements IPublisher {
         }
     }
 
+    // DONE
+    private async deleteAssets(assets: any) {
+        for (let idx = 0; idx < assets.images.length; idx++) {
+            const image = assets.images[idx];
+            await this.deleteImage(image.path);
+        }
+    }
+
+    // DONE
     private async uploadImage(filePath: string, content: string) {
         const path = `${this.assetsRepoPath}/${filePath}`
         await this.uploadToGithub(path, content)
     }
 
-    private async deleteImage(vaultFilePath: string) {
-        const path = `src/site/img/user/${encodeURI(vaultFilePath)}`;
+    // DONE
+    private async deleteImage(filePath: string) {
+        const path = `${this.assetsRepoPath}/${filePath}`
         return await this.deleteFromGithub(path);
     }
 
@@ -183,7 +197,6 @@ export default class Publisher implements IPublisher {
         };
 
         const imagePathsToTFilesMap = await this.extractEmbeddedImageFiles(text, filePath);
-        console.log({ imagePathsToTFilesMap })
 
         for (const path in imagePathsToTFilesMap) {
             const image = imagePathsToTFilesMap[path];
@@ -196,12 +209,14 @@ export default class Publisher implements IPublisher {
         return assets;
     }
 
+    // DONE
     private async readImageToBase64(file: TFile): Promise<string> {
         const image = await this.vault.readBinary(file);
         const imageBase64 = arrayBufferToBase64(image)
         return imageBase64;
     }
 
+    // DONE
     private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
         const embeddedImageFiles: { [path: string]: TFile } = {};
 
@@ -209,19 +224,14 @@ export default class Publisher implements IPublisher {
         const embeddedImageRegex = /!\[\[(.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))(?:\|(.*?))?\]\]/g;
         const embeddedImageMatches = [...text.matchAll(embeddedImageRegex)];
 
-        console.log({ embeddedImageMatches })
-
         if (embeddedImageMatches) {
             for (let i = 0; i < embeddedImageMatches.length; i++) {
                 try {
                     // `path` below can be a full path or Obsidian-style shortened path, i.e. just a file name with extension
                     // const [, path, extension, size = null] = embeddedImageMatches[i];
                     const [, path] = embeddedImageMatches[i];
-                    console.log({ path })
                     const imagePath = getLinkpath(path);
-                    console.log({ imagePath })
                     const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    console.log({ linkedFile })
 
                     if (!embeddedImageFiles[linkedFile.path]) {
                         embeddedImageFiles[linkedFile.path] = linkedFile;
