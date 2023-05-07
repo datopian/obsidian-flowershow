@@ -9,7 +9,7 @@ export interface IPublishStatusModal {
     open(): void;
 }
 
-export class PublishStatusModal implements IPublishStatusModal {
+export default class PublishStatusModal implements IPublishStatusModal {
     private modal: Modal;
     // private settings: FlowershowSettings;
     private publishStatusManager: IPublishStatusManager;

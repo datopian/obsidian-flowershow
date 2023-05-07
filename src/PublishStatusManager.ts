@@ -17,6 +17,9 @@ export interface IPublishStatusManager {
     getPublishStatus(): Promise<PublishStatus>;
 }
 
+
+// TODO move everything from publish status manager to siteManager or publisher?
+// def. don't pass siteManager and publisher to publishStatusManager
 export default class PublishStatusManager implements IPublishStatusManager {
     private siteManager: ISiteManager;
     private publisher: IPublisher;
