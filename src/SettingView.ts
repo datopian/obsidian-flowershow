@@ -26,29 +26,29 @@ export default class SettingView {
 
     async initialize(prModal: Modal) {
         this.settingsRootElement.empty();
-        this.settingsRootElement.createEl('h1', { text: 'Digital Garden Settings' });
+        this.settingsRootElement.createEl('h1', { text: 'Flowershow Settings' });
         const linkDiv = this.settingsRootElement.createEl('div', { attr: { style: "margin-bottom: 10px;" } })
         linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
-        linkDiv.createEl('a', { text: 'here.', href: "https://dg-docs.ole.dev/getting-started/01-getting-started/" });
+        linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/obsidian-flowershow" });
 
         this.settingsRootElement.createEl('h3', { text: 'GitHub Authentication (required)' }).prepend(getIcon("github"));
         this.initializeGitHubRepoSetting();
         this.initializeGitHubUserNameSetting();
         this.initializeGitHubTokenSetting();
 
-        this.settingsRootElement.createEl('h3', { text: 'URL' }).prepend(getIcon("link"));
-        this.initializeGitHubBaseURLSetting();
-        this.initializeSlugifySetting();
+        // this.settingsRootElement.createEl('h3', { text: 'URL' }).prepend(getIcon("link"));
+        // this.initializeGitHubBaseURLSetting();
+        // this.initializeSlugifySetting();
 
-        this.settingsRootElement.createEl('h3', { text: 'Features' }).prepend(getIcon("star"));
-        this.initializeDefaultNoteSettings();
+        // this.settingsRootElement.createEl('h3', { text: 'Features' }).prepend(getIcon("star"));
+        // this.initializeDefaultNoteSettings();
 
-        this.settingsRootElement.createEl('h3', { text: 'Appearance' }).prepend(getIcon("brush"));
-        this.initializeThemesSettings();
+        // this.settingsRootElement.createEl('h3', { text: 'Appearance' }).prepend(getIcon("brush"));
+        // this.initializeThemesSettings();
 
-        this.settingsRootElement.createEl('h3', { text: 'Advanced' }).prepend(getIcon("cog"));
-        this.initializePathRewriteSettings();
-        prModal.titleEl.createEl("h1", "Site template settings");
+        // this.settingsRootElement.createEl('h3', { text: 'Advanced' }).prepend(getIcon("cog"));
+        // this.initializePathRewriteSettings();
+        // prModal.titleEl.createEl("h1", "Site template settings");
     }
 
     private async initializeDefaultNoteSettings() {

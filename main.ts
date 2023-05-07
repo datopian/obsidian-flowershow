@@ -257,8 +257,8 @@ class FlowershowSettingTab extends PluginSettingTab {
 
 
 		};
-		settingView.renderCreatePr(prModal, handlePR);
-		settingView.renderPullRequestHistory(prModal, this.plugin.settings.prHistory.reverse().slice(0, 10));
+		// settingView.renderCreatePr(prModal, handlePR);
+		// settingView.renderPullRequestHistory(prModal, this.plugin.settings.prHistory.reverse().slice(0, 10));
 	}
 }
 
