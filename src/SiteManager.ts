@@ -96,12 +96,6 @@ export default class SiteManager implements ISiteManager {
 
         let urlPath = `/${noteUrlPath}`;
 
-        const frontMatter = this.metadataCache.getCache(file.path).frontmatter;
-
-        if (frontMatter && frontMatter["dghome"] === true) {
-            urlPath = "/";
-        }
-
         return `${baseUrl}${urlPath}`;
     }
 

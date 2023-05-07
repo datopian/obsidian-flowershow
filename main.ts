@@ -67,10 +67,10 @@ export default class Flowershow extends Plugin {
 
 		// DONE
 		this.addCommand({
-			id: 'publish-multiple-notes',
-			name: 'Publish Multiple Notes',
+			id: 'publish-all-notes',
+			name: 'Publish All Notes',
 			callback: async () => {
-				await this.publishMultipleNotes();
+				await this.publishAllNotes();
 			},
 		});
 
@@ -135,7 +135,7 @@ export default class Flowershow extends Plugin {
 	}
 
 	// DONE
-	async publishMultipleNotes() {
+	async publishAllNotes() {
 		const statusBarItem = this.addStatusBarItem();
 		try {
 
