@@ -2,10 +2,8 @@ import FlowershowSettings from './FlowershowSettings';
 import { ButtonComponent, Modal, Notice, Setting, App, TFile, debounce, MetadataCache, getIcon } from 'obsidian';
 import axios from "axios";
 import { Octokit } from '@octokit/core';
-import { Base64 } from 'js-base64';
 import { arrayBufferToBase64 } from './utils';
-import Flowershow from 'main';
-import FlowershowSiteManager from './FlowershowSiteManager';
+import SiteManager from './SiteManager';
 import { SvgFileSuggest } from './ui/file-suggest';
 
 export default class SettingView {
@@ -28,29 +26,29 @@ export default class SettingView {
 
     async initialize(prModal: Modal) {
         this.settingsRootElement.empty();
-        this.settingsRootElement.createEl('h1', { text: 'Digital Garden Settings' });
+        this.settingsRootElement.createEl('h1', { text: 'Flowershow Settings' });
         const linkDiv = this.settingsRootElement.createEl('div', { attr: { style: "margin-bottom: 10px;" } })
         linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
-        linkDiv.createEl('a', { text: 'here.', href: "https://dg-docs.ole.dev/getting-started/01-getting-started/" });
+        linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/obsidian-flowershow" });
 
         this.settingsRootElement.createEl('h3', { text: 'GitHub Authentication (required)' }).prepend(getIcon("github"));
         this.initializeGitHubRepoSetting();
         this.initializeGitHubUserNameSetting();
         this.initializeGitHubTokenSetting();
 
-        this.settingsRootElement.createEl('h3', { text: 'URL' }).prepend(getIcon("link"));
-        this.initializeGitHubBaseURLSetting();
-        this.initializeSlugifySetting();
+        // this.settingsRootElement.createEl('h3', { text: 'URL' }).prepend(getIcon("link"));
+        // this.initializeGitHubBaseURLSetting();
+        // this.initializeSlugifySetting();
 
-        this.settingsRootElement.createEl('h3', { text: 'Features' }).prepend(getIcon("star"));
-        this.initializeDefaultNoteSettings();
+        // this.settingsRootElement.createEl('h3', { text: 'Features' }).prepend(getIcon("star"));
+        // this.initializeDefaultNoteSettings();
 
-        this.settingsRootElement.createEl('h3', { text: 'Appearance' }).prepend(getIcon("brush"));
-        this.initializeThemesSettings();
+        // this.settingsRootElement.createEl('h3', { text: 'Appearance' }).prepend(getIcon("brush"));
+        // this.initializeThemesSettings();
 
-        this.settingsRootElement.createEl('h3', { text: 'Advanced' }).prepend(getIcon("cog"));
-        this.initializePathRewriteSettings();
-        prModal.titleEl.createEl("h1", "Site template settings");
+        // this.settingsRootElement.createEl('h3', { text: 'Advanced' }).prepend(getIcon("cog"));
+        // this.initializePathRewriteSettings();
+        // prModal.titleEl.createEl("h1", "Site template settings");
     }
 
     private async initializeDefaultNoteSettings() {
@@ -449,7 +447,7 @@ export default class SettingView {
             new Notice(`The ${theme.name} theme doesn't support ${baseTheme} mode.`)
             return;
         }
-        const gardenManager = new FlowershowSiteManager(this.app.metadataCache, this.settings)
+        const gardenManager = new SiteManager(this.app.metadataCache, this.settings)
         await gardenManager.updateEnv();
 
         new Notice("Successfully applied settings");
@@ -459,7 +457,7 @@ export default class SettingView {
         const octokit = new Octokit({ auth: settings.githubToken });
         let updateFailed = false;
         try {
-            const gardenManager = new FlowershowSiteManager(metadataCache, settings)
+            const gardenManager = new SiteManager(metadataCache, settings)
             await gardenManager.updateEnv();
         } catch {
             new Notice("Failed to update settings. Make sure you have an internet connection.")

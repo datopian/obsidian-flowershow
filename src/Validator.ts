@@ -1,11 +1,11 @@
 import { FrontMatterCache, Notice } from "obsidian";
 
-import FlowershowSettings from "./FlowershowSettings";
+import { FlowershowSettings } from "./FlowershowSettings";
 
 
 export function validatePublishFrontmatter(frontMatter: FrontMatterCache): boolean {
-    if (!frontMatter || !frontMatter["dgpublish"]) {
-        new Notice("Note does not have the dgpublish: true set. Please add this and try again.")
+    if (frontMatter && frontMatter["isDraft"]) {
+        new Notice("Note is marked as draft. Please remove `isDraft` from the frontmatter and again.")
         return false;
     }
     return true;

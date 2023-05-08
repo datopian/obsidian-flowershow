@@ -1,33 +1,33 @@
-export class PublishStatusBar {
+// DONE
+export default class PublishStatusBar {
+    publishCounter: number;
+    publishTotal: number;
+
     statusBarItem: HTMLElement;
-    counter: number;
-    numberOfNotesToPublish: number;
-
     status: HTMLElement;
-    constructor(statusBarItem: HTMLElement, numberOfNotesToPublish: number) {
+
+    constructor(statusBarItem: HTMLElement, notesToPublishCount: number) {
         this.statusBarItem = statusBarItem;
-        this.counter = 0;
-        this.numberOfNotesToPublish = numberOfNotesToPublish;
+        this.publishCounter = 0;
+        this.publishTotal = notesToPublishCount;
 
-
-        this.statusBarItem.createEl("span", { text: "Digital Garden: " });
-        this.status = this.statusBarItem.createEl("span", { text: `${this.numberOfNotesToPublish} files marked for publishing` });
+        this.statusBarItem.createEl("span", { text: "Flowershow: " });
+        this.status = this.statusBarItem.createEl("span");
     }
 
     increment() {
-
-        this.status.innerText = `⌛Publishing files: ${++this.counter}/${this.numberOfNotesToPublish}`;
+        ++this.publishCounter;
+        this.status.innerText = `⌛ Publishing notes: ${this.publishCounter}/${this.publishTotal}`;
     }
 
     finish(displayDurationMillisec: number) {
-        this.status.innerText = `✅ Published files: ${this.counter}/${this.numberOfNotesToPublish}`;
+        this.status.innerText = `✅ Published notes: ${this.publishCounter}/${this.publishTotal}`;
         setTimeout(() => {
             this.statusBarItem.remove();
         }, displayDurationMillisec);
-
     }
 
-    error(){
+    error() {
         this.statusBarItem.remove();
     }
 }

@@ -5,13 +5,17 @@ import { Octokit } from "@octokit/core";
 import { Base64 } from 'js-base64';
 import FlowershowPluginInfo from "./FlowershowPluginInfo";
 
-export interface IFlowershowSiteManager {
+
+export type PathToHashDict = { [key: string]: string };
+
+export interface ISiteManager {
     getNoteUrl(file: TFile): string;
     getNoteHashes(): Promise<{ [key: string]: string }>;
     getImageHashes(): Promise<{ [key: string]: string }>;
     createPullRequestWithSiteChanges(): Promise<string>;
 }
-export default class FlowershowSiteManager implements IFlowershowSiteManager {
+
+export default class SiteManager implements ISiteManager {
     settings: FlowershowSettings;
     metadataCache: MetadataCache;
     rewriteRules: Array<Array<string>>;
@@ -88,27 +92,16 @@ export default class FlowershowSiteManager implements IFlowershowSiteManager {
             `https://${extractBaseUrl(this.settings.gardenBaseUrl)}`
             : `https://${this.settings.githubRepo}.netlify.app`;
 
-
         const noteUrlPath = generateUrlPath(getGardenPathForNote(file.path, this.rewriteRules), this.settings.slugifyEnabled);
 
         let urlPath = `/${noteUrlPath}`;
 
-        const frontMatter = this.metadataCache.getCache(file.path).frontmatter;
-
-        if (frontMatter && frontMatter["dg-home"] === true) {
-            urlPath = "/";
-        } else if (frontMatter && frontMatter.permalink) {
-            urlPath = `/${frontMatter.permalink}`;
-        } else if (frontMatter && frontMatter["dg-permalink"]) {
-            urlPath = `/${frontMatter["dg-permalink"]}`;
-        }
-
         return `${baseUrl}${urlPath}`;
-
     }
 
 
-    async getNoteHashes(): Promise<{ [key: string]: string }> {
+    // DONE
+    async getNoteHashes(): Promise<PathToHashDict> {
         const octokit = new Octokit({ auth: this.settings.githubToken });
         //Force the cache to be updated
         const response = await octokit.request(`GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=${Math.ceil(Math.random() * 1000)}`, {
@@ -119,16 +112,20 @@ export default class FlowershowSiteManager implements IFlowershowSiteManager {
 
         const files = response.data.tree;
         const notes: Array<{ path: string, sha: string }> = files.filter(
-            (x: { path: string; type: string; }) => x.path.startsWith("src/site/notes/") && x.type === "blob" && x.path !== "src/site/notes/notes.json");
-        const hashes: { [key: string]: string } = {};
-        for (const note of notes) {
-            const vaultPath = note.path.replace("src/site/notes/", "");
-            hashes[vaultPath] = note.sha;
-        }
+            (file: { path: string; type: string; }) => file.path.startsWith("content/") && file.type === "blob" && file.path !== "content/config.mjs");
+
+        const hashes: PathToHashDict = notes.reduce((dict: PathToHashDict, note) => {
+            const vaultPath = note.path.replace("content/", "");
+            dict[vaultPath] = note.sha;
+            return dict
+        }, {});
+
         return hashes;
     }
 
-    async getImageHashes(): Promise<{ [key: string]: string }> {
+    // DONE
+    // TODO can we remove this and have only one method that handles both notes and images? do we need to decode URI here?
+    async getImageHashes(): Promise<PathToHashDict> {
         const octokit = new Octokit({ auth: this.settings.githubToken });
         //Force the cache to be updated
         const response = await octokit.request(`GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=${Math.ceil(Math.random() * 1000)}`, {
@@ -139,12 +136,14 @@ export default class FlowershowSiteManager implements IFlowershowSiteManager {
 
         const files = response.data.tree;
         const images: Array<{ path: string, sha: string }> = files.filter(
-            (x: { path: string; type: string; }) => x.path.startsWith("src/site/img/user/") && x.type === "blob");
-        const hashes: { [key: string]: string } = {};
-        for (const img of images) {
-            const vaultPath = decodeURI(img.path.replace("src/site/img/user/", ""));
-            hashes[vaultPath] = img.sha;
-        }
+            (file: { path: string; type: string; }) => file.path.startsWith("public/") && file.type === "blob");
+
+        const hashes: PathToHashDict = images.reduce((dict: PathToHashDict, img) => {
+            const vaultPath = decodeURI(img.path.replace("public/", "")); // TODO why do we need to decodeURI for images?
+            dict[vaultPath] = img.sha;
+            return dict
+        }, {});
+
         return hashes;
     }
 
