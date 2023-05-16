@@ -68,3 +68,7 @@ Now, whenever you make any changes to the source code, two things will happen:
 1. The plugin will be rebuilt automatically.
 2. The Hot-Reload plugin will detect that the plugin has been rebuilt and will reload it in Obsidian.
 
+## Shoutout
+
+Big thanks to [Ole Eskild Steensen](https://github.com/oleeskild) for [his obsidian-digital-garden plugin](https://github.com/oleeskild/obsidian-digital-garden/tree/main) which inspired us and we got to build on.
+
