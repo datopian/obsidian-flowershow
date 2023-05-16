@@ -23,6 +23,16 @@ You can now start adding links as you usually would in Obisidan, with double squ
 * `Flowershow: Publish Single Note` - Publishes the current note to your Flowershow site.
 * `Flowershow: Publish All Notes` - Publishes all notes in your vault to your Flowershow site.
 
+### Ribbon commands
+
+After installing the plugin, you'll see a new icon added to your Obsidian ribbon - 🌱.
+Clicking on it will pull up the Publication Status panel, which includes:
+
+* **Published**: the total number of notes that has been published to your Flowershow site
+* **Changed**: the total number of __published__ notes that has been edited locally (+ button to publish them)
+* **Unpublished**: the total number of new notes in your Obsidian vault, that has not yet been published to your site (+ button to publish them)
+* **Deleted**: the total number of notes that has been deleted from your Obsidian vault, but are still published on your site (+ button to unpublish them)
+
 ### Frontmatter settings
 
 * `isDraft` - Set to `true` to keep the note unpublished from your Flowershow site (or unpublish it if it was published before). Default: `false`.
