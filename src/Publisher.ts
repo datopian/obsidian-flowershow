@@ -52,7 +52,8 @@ export default class Publisher implements IPublisher {
     // DONE
     async unpublishNote(notePath: string) {
         await this.deleteMarkdown(notePath);
-        await this.deleteAssets(notePath);
+        // TODO
+        // await this.deleteAssets(notePath);
     }
 
     // DONE
@@ -72,7 +73,7 @@ export default class Publisher implements IPublisher {
 
         for (const file of files) {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-            if (frontMatter && frontMatter["dgpublish"] === true) {
+            if (!frontMatter || !frontMatter["isDraft"]) {
                 notesToPublish.push(file);
                 const text = await this.vault.cachedRead(file);
                 const images = await this.extractEmbeddedImageFiles(text, file.path);
@@ -110,7 +111,6 @@ export default class Publisher implements IPublisher {
         }
     }
 
-    // DONE
     private async deleteAssets(assets: any) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
@@ -120,8 +120,13 @@ export default class Publisher implements IPublisher {
 
     // DONE
     private async uploadImage(filePath: string, content: string) {
-        const path = `${this.assetsRepoPath}/${filePath}`
-        await this.uploadToGithub(path, content)
+        const publicPath = `${this.assetsRepoPath}/${filePath}`
+        await this.uploadToGithub(publicPath, content)
+        // TODO temporarily we also need to upload the image to the content folder
+        // so that shortened Obsidian image embeds can be resolved
+        // in the future, copying the image to the public folder could be done when building the site
+        const contentPath = `${this.notesRepoPath}/${filePath}`
+        await this.uploadToGithub(contentPath, content)
     }
 
     // DONE

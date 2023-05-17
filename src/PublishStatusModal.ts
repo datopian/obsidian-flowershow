@@ -1,6 +1,6 @@
 import { App, ButtonComponent, Modal } from "obsidian";
 
-import FlowershowSettings from "src/FlowershowSettings";
+import { FlowershowSettings } from "./FlowershowSettings";
 import { IPublisher } from "./Publisher";
 import { IPublishStatusManager, PublishStatus } from "./PublishStatusManager";
 
