@@ -27,7 +27,8 @@ export default class SettingView {
     async initialize(prModal: Modal) {
         this.settingsRootElement.empty();
         this.settingsRootElement.createEl('h1', { text: 'Flowershow Settings' });
-        const linkDiv = this.settingsRootElement.createEl('div', { attr: { style: "margin-bottom: 10px;" } })
+        const linkDiv = this.settingsRootElement.createEl('div');
+        linkDiv.addClass("pr-link");
         linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
         linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/obsidian-flowershow" });
 

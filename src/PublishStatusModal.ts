@@ -45,7 +45,8 @@ export default class PublishStatusModal implements IPublishStatusModal {
         this.modal.titleEl.innerText = "🌷 Flowershow";
         this.modal.contentEl.addClass("digital-garden-publish-status-view");
         this.modal.contentEl.createEl("h2", { text: "Publication Status" });
-        this.progressContainer = this.modal.contentEl.createEl("div", { attr: { style: "height: 30px;" } });
+        this.progressContainer = this.modal.contentEl.createEl("div");
+        this.progressContainer.addClass("progress-container");
 
         [this.publishedCounter, this.publishedList] = this.createSection("Published", null, null);
         [this.changedCounter, this.changedList] = this.createSection("Changed", "Update changed notes", async () => this.publishChangedNotes());
@@ -58,11 +59,14 @@ export default class PublishStatusModal implements IPublishStatusModal {
 
     // DONE
     private createSection(title: string, buttonText: string, buttonCallback: () => Promise<void>): Array<HTMLElement> {
-        const headerContainer = this.modal.contentEl.createEl("div", { attr: { style: "display: flex; justify-content: space-between; margin-bottom: 10px; align-items:center" } });
+        const headerContainer = this.modal.contentEl.createEl("div");
+        headerContainer.addClass("header-container");
         const collapsableList = this.modal.contentEl.createEl("ul");
-        const titleContainer = headerContainer.createEl("div", { attr: { style: "display: flex; align-items:center" } });
+        const titleContainer = headerContainer.createEl("div");
+        titleContainer.addClass("title-container");
         const toggleHeader = titleContainer.createEl("h3", { text: `➕️ ${title}`, attr: { class: "collapsable collapsed" } });
-        const counter = titleContainer.createEl("span", { attr: { class: "count", style: "margin-left:10px" } });
+        const counter = titleContainer.createEl("span");
+        counter.addClass("count");
 
         collapsableList.hide();
 

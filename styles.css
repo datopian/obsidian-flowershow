@@ -7,6 +7,26 @@
     overflow: auto;
 }
 
+.digital-garden-publish-status-view progress-container {
+    height: 33px;
+}
+
+.digital-garden-publish-status-view header-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.digital-garden-publish-status-view header-container {
+    display: flex;
+    align-items: center;
+}
+
+.digital-garden-publish-status-view header-container {
+    margin-left: 10px;
+}
+
 .digital-garden-publish-status-view h2 {
     margin-top: 0;
     margin-bottom: 5px;
@@ -23,4 +43,8 @@
 
 .dg-settings .svg-icon {
     margin-right: 10px;
+}
+
+.pr-link {
+    margin-bottom: 10px
 }
