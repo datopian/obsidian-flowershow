@@ -119,10 +119,10 @@ export default class Flowershow extends Plugin {
 	async publishSingleNote() {
 		try {
 			const currentFile = this.app.workspace.getActiveFile();
-			if (!currentFile) {
-				new Notice("No file is open/active. Please open a file and try again.")
-				return;
-			}
+			// if (!currentFile) {
+			// 	new Notice("No file is open/active. Please open a file and try again.")
+			// 	return;
+			// }
 
 			if (currentFile.extension !== 'md') {
 				new Notice("The current file is not a markdown file. Please open a markdown file and try again.")
@@ -241,28 +241,28 @@ class FlowershowSettingTab extends PluginSettingTab {
 		await settingView.initialize(prModal);
 
 
-		const handlePR = async (button: ButtonComponent) => {
-			settingView.renderLoading();
-			button.setDisabled(true);
+		// const handlePR = async (button: ButtonComponent) => {
+		// 	settingView.renderLoading();
+		// 	button.setDisabled(true);
 
-			try {
-				const siteManager = new SiteManager(this.plugin.app.metadataCache, this.plugin.settings);
+		// 	try {
+		// 		const siteManager = new SiteManager(this.plugin.app.metadataCache, this.plugin.settings);
 
-				const prUrl = await siteManager.createPullRequestWithSiteChanges()
+		// 		const prUrl = await siteManager.createPullRequestWithSiteChanges()
 
-				if (prUrl) {
-					this.plugin.settings.prHistory.push(prUrl);
-					await this.plugin.saveSettings();
-				}
-				settingView.renderSuccess(prUrl);
-				button.setDisabled(false);
+		// 		if (prUrl) {
+		// 			this.plugin.settings.prHistory.push(prUrl);
+		// 			await this.plugin.saveSettings();
+		// 		}
+		// 		settingView.renderSuccess(prUrl);
+		// 		button.setDisabled(false);
 
-			} catch {
-				settingView.renderError();
-			}
+		// 	} catch {
+		// 		settingView.renderError();
+		// 	}
 
 
-		};
+		// };
 		// settingView.renderCreatePr(prModal, handlePR);
 		// settingView.renderPullRequestHistory(prModal, this.plugin.settings.prHistory.reverse().slice(0, 10));
 	}
