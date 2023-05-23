@@ -41,7 +41,7 @@ export default class ObsidianFrontMatterEngine implements IFrontMatterEngine {
     async apply(): Promise<void> {
         const newFrontMatter = this.getFrontMatterSnapshot();
 
-        const content = await this.vault.cachedRead(this.file);
+        const content = await this.vault.read(this.file);
         const frontmatterRegex = /^\s*?---\n([\s\S]*?)\n---/g;
         const yaml = this.frontMatterToYaml(newFrontMatter);
         let newContent = "";
@@ -57,7 +57,7 @@ export default class ObsidianFrontMatterEngine implements IFrontMatterEngine {
     }
 
     private frontMatterToYaml(frontMatter: {}) {
-        for(const key of Object.keys(frontMatter)) {
+        for (const key of Object.keys(frontMatter)) {
             //@ts-ignore
             if (frontMatter[key] === undefined) {
                 //@ts-ignore
@@ -65,7 +65,7 @@ export default class ObsidianFrontMatterEngine implements IFrontMatterEngine {
             }
         }
 
-        if(Object.keys(frontMatter).length === 0) {
+        if (Object.keys(frontMatter).length === 0) {
             return "";
         }
 

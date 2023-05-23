@@ -62,7 +62,7 @@ export default class Publisher implements IPublisher {
         //     return await this.generateExcalidrawMarkdown(file, true);
         // }
 
-        return await this.vault.cachedRead(file);
+        return await this.vault.read(file);
     }
 
     // DONE
@@ -75,7 +75,7 @@ export default class Publisher implements IPublisher {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
             if (!frontMatter || !frontMatter["isDraft"]) {
                 notesToPublish.push(file);
-                const text = await this.vault.cachedRead(file);
+                const text = await this.vault.read(file);
                 const images = await this.extractEmbeddedImageFiles(text, file.path);
                 Object.keys(images).forEach((i) => assetsToPublish.add(i));
                 // ... other assets?
