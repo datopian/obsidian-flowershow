@@ -60,8 +60,11 @@ export default class Flowershow extends Plugin {
 		this.addCommand({
 			id: 'publish-note',
 			name: 'Publish Single Note',
-			callback: async () => {
-				await this.publishSingleNote();
+			checkCallback: (checking: boolean) => {
+				if (checking) {
+					return !!this.app.workspace.getActiveFile();
+				}
+				this.publishSingleNote();
 			}
 		});
 
@@ -69,8 +72,11 @@ export default class Flowershow extends Plugin {
 		this.addCommand({
 			id: 'publish-all-notes',
 			name: 'Publish All Notes',
-			callback: async () => {
-				await this.publishAllNotes();
+			checkCallback: (checking: boolean) => {
+				if (checking) {
+					return true
+				}
+				this.publishAllNotes();
 			},
 		});
 
