@@ -79,40 +79,6 @@ export default class Flowershow extends Plugin {
 				this.publishAllNotes();
 			},
 		});
-
-		// TODO not sure if we want this
-		// this.addCommand({
-		// 	id: 'quick-publish-and-share-note',
-		// 	name: 'Quick Publish And Share Note',
-		// 	callback: async () => {
-		// 		new Notice("Adding publish flag to note and publishing it.")
-		// 		await this.addPublishFlag();
-		// 		const activeFile = this.app.workspace.getActiveFile();
-		// 		const event = this.app.metadataCache.on('changed', async (file, data, cache) => {
-		// 			if (file.path === activeFile.path) {
-		// 				const successfullyPublished = await this.publishSingleNote();
-		// 				if (successfullyPublished) {
-		// 					await this.copyNoteUrlToClipboard();
-		// 				}
-		// 				this.app.metadataCache.offref(event);
-		// 			}
-		// 		});
-
-		// 		// Remove the event listener after 5 seconds in case the file is not changed.
-		// 		setTimeout(() => {
-		// 			this.app.metadataCache.offref(event);
-		// 		}, 5000);
-
-		// 	}
-		// });
-
-		// this.addCommand({
-		// 	id: 'copy-garden-url',
-		// 	name: 'Copy Garden URL',
-		// 	callback: async () => {
-		// 		this.copyNoteUrlToClipboard();
-		// 	}
-		// });
 	}
 
 	// DONE

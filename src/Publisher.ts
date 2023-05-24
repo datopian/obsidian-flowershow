@@ -275,28 +275,4 @@ export default class Publisher implements IPublisher {
 
         return embeddedImageFiles;
     }
-
-    // private async generateExcalidrawMarkdown(file: TFile, includeExcaliDrawJs: boolean, idAppendage = "", includeFrontMatter = true): Promise<string> {
-    //     if (!file.name.endsWith(".excalidraw.md")) return "";
-
-    //     const fileText = await this.vault.cachedRead(file);
-    //     const frontMatter = await this.getProcessedFrontMatter(file);
-
-    //     const isCompressed = fileText.includes("```compressed-json")
-    //     const start = fileText.indexOf(isCompressed ? "```compressed-json" : "```json") + (isCompressed ? "```compressed-json" : "```json").length;
-    //     const end = fileText.lastIndexOf('```')
-    //     const excaliDrawJson = JSON.parse(
-    //         isCompressed ? LZString.decompressFromBase64(fileText.slice(start, end).replace(/[\n\r]/g, "")) : fileText.slice(start, end)
-    //     );
-
-    //     const drawingId = file.name.split(" ").join("_").replace(".", "") + idAppendage;
-    //     let excaliDrawCode = "";
-    //     if (includeExcaliDrawJs) {
-    //         excaliDrawCode += excaliDrawBundle;
-    //     }
-
-    //     excaliDrawCode += excalidraw(JSON.stringify(excaliDrawJson), drawingId);
-
-    //     return `${includeFrontMatter ? frontMatter : ''}${excaliDrawCode}`;
-    // }
 }
