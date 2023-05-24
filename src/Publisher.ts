@@ -1,5 +1,5 @@
 import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
-import FlowershowSettings from "./FlowershowSettings";
+import { FlowershowSettings } from "./FlowershowSettings";
 import { Base64 } from "js-base64";
 import { Octokit } from "@octokit/core";
 // import { arrayBufferToBase64, getGardenPathForNote, getRewriteRules } from "./utils";
