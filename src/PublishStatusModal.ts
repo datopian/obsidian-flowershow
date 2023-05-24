@@ -104,13 +104,40 @@ export default class PublishStatusModal implements IPublishStatusModal {
         const { publishedNotes, unpublishedNotes, changedNotes, deletedNotePaths } = this.publishStatus;
 
         this.publishedCounter.textContent = `(${publishedNotes.length} notes)`;
-        this.publishedList.innerHTML = publishedNotes.map(file => `<li>${file.path}</li>`).join("");
+
+        this.publishedList.textContent = '';
+        publishedNotes.forEach(file => {
+            const li = document.createElement('li');
+            li.textContent = file.path;
+            this.publishedList.appendChild(li);
+        });
+
         this.unpublishedCounter.textContent = `(${unpublishedNotes.length} notes)`;
-        this.unpublishedList.innerHTML = unpublishedNotes.map(file => `<li>${file.path}</li>`).join("");
+
+        this.unpublishedList.textContent = '';
+        unpublishedNotes.forEach(file => {
+            const li = document.createElement('li');
+            li.textContent = file.path;
+            this.unpublishedList.appendChild(li);
+        });
+
         this.changedCounter.textContent = `(${changedNotes.length} notes)`;
-        this.changedList.innerHTML = changedNotes.map(file => `<li>${file.path}</li>`).join("");
+
+        this.changedList.textContent = '';
+        changedNotes.forEach(file => {
+            const li = document.createElement('li');
+            li.textContent = file.path;
+            this.changedList.appendChild(li);
+        });
+
         this.deletedCounter.textContent = `(${deletedNotePaths.length} notes)`;
-        this.deletedList.innerHTML = deletedNotePaths.map(file => `<li>${file}</li>`).join("");
+
+        this.deletedList.textContent = '';
+        deletedNotePaths.forEach(path => {
+            const li = document.createElement('li');
+            li.textContent = path;
+            this.deletedList.appendChild(li);
+        });
     }
 
     private async initView() {
@@ -127,13 +154,13 @@ export default class PublishStatusModal implements IPublishStatusModal {
     // DONE
     private async clearStatus() {
         this.publishedCounter.textContent = ``;
-        this.publishedList.innerHTML = ``;
+        this.publishedList.textContent = ``;
         this.changedCounter.textContent = ``;
-        this.changedList.innerHTML = ``;
+        this.changedList.textContent = ``;
         this.deletedCounter.textContent = ``;
-        this.deletedList.innerHTML = ``;
+        this.deletedList.textContent = ``;
         this.unpublishedCounter.textContent = ``;
-        this.unpublishedList.innerHTML = ``;
+        this.unpublishedList.textContent = ``;
     }
 
     // DONE
