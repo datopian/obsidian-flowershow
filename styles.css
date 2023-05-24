@@ -7,23 +7,27 @@
     overflow: auto;
 }
 
-.digital-garden-publish-status-view progress-container {
+.digital-garden-publish-status-view .progress-container {
     height: 33px;
 }
 
-.digital-garden-publish-status-view header-container {
+.digital-garden-publish-status-view .header-container {
     display: flex;
     justify-content: space-between;
     margin-bottom: 10px;
     align-items: center;
 }
 
-.digital-garden-publish-status-view header-container {
+.digital-garden-publish-status-view .title-container {
     display: flex;
     align-items: center;
 }
 
-.digital-garden-publish-status-view header-container {
+.digital-garden-publish-status-view .title-container .collapsable {
+    margin: 20px 10px;
+}
+
+.digital-garden-publish-status-view .count {
     margin-left: 10px;
 }
 
