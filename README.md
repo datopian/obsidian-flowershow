@@ -8,7 +8,7 @@ Obsidian Flowershow plugin for publishing with [Flowershow](https://github.com/d
 
 1. Firstly, you will need a GitHub account. If you don't have it yet, create one [here](https://github.com/signup).
 2. You'll also need a Vercel account. You can sign up using your GitHub account [here](https://vercel.com/signup)
-3. Open [this repo](https://github.com/datopian/flowershow-template), and click the blue "Deploy" button under "Quick clone and deploy" section. This will open Vercel's "Create Git Repository" page. Pick a name for your site's repository and click "Create", to create a copy of the template repository in your GitHub account and deploy it to Vercel.
+3. Open [this repo](https://github.com/datopian/flowershow), and click the blue "Deploy" button under "Quick clone and deploy" section. This will open Vercel's "Create Git Repository" page. Pick a name for your site's repository and click "Create", to create a copy of the template repository in your GitHub account and deploy it to Vercel.
 4. Now you need to create a personal access token on GitHub, so that the plugin can add/delete notes to/from the repo. Go to [this page](https://github.com/settings/tokens/new?scopes=repo) while logged in to GitHub. The correct settings should already be applied. If you don't want to generate this every few months, choose the "No expiration" option. Click the "Generate token" button, and copy the token you are presented with on the next page. 
 5. In Obsidian open Flowershow plugin settings. Fill in your GitHub username, the name of the repo with your notes which you created in step 3. Lastly paste the token you created in step 4.
 6. Now, let's publish your first note! Create a new note in Obsidian.
