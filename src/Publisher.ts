@@ -2,6 +2,7 @@ import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
 import { FlowershowSettings } from "./FlowershowSettings";
 import { Base64 } from "js-base64";
 import { Octokit } from "@octokit/core";
+import axios from "axios";
 // import { arrayBufferToBase64, getGardenPathForNote, getRewriteRules } from "./utils";
 import { arrayBufferToBase64 } from "./utils";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
@@ -27,8 +28,8 @@ export default class Publisher implements IPublisher {
     private settings: FlowershowSettings;
     // private rewriteRules: Array<Array<string>>;
 
-    private notesRepoPath = "content";
-    private assetsRepoPath = "public";
+    private notesFolder = "content";
+    private assetsFolder = "public";
 
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
@@ -43,10 +44,10 @@ export default class Publisher implements IPublisher {
             throw {}
         }
         const markdown = await this.prepareMarkdown(file);
-        const assets = await this.prepareAssociatedAssets(markdown, file.path);
+        // const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
         await this.uploadMarkdown(markdown, file.path);
-        await this.uploadAssets(assets);
+        // await this.uploadAssets(assets);
     }
 
     // DONE
@@ -90,13 +91,13 @@ export default class Publisher implements IPublisher {
 
     // DONE
     private async uploadMarkdown(content: string, filePath: string) {
-        content = Base64.encode(content);
-        const path = `${this.notesRepoPath}/${filePath}`
-        await this.uploadToGithub(path, content)
+        const path = `${this.notesFolder}/${filePath}`
+        await this.uploadToR2(path, content)
     }
 
+
     private async deleteMarkdown(filePath: string) {
-        const path = `${this.notesRepoPath}/${filePath}`
+        const path = `${this.notesFolder}/${filePath}`
         await this.deleteFromGithub(path)
     }
 
@@ -125,7 +126,7 @@ export default class Publisher implements IPublisher {
         // TODO temporarily we also need to upload the image to the content folder
         // so that shortened Obsidian image embeds can be resolved
         // in the future, copying the image to the public folder could be done when building the site
-        const contentPath = `${this.notesRepoPath}/${filePath}`
+        const contentPath = `${this.notesFolder}/${filePath}`
         await this.uploadToGithub(contentPath, content)
     }
 
@@ -135,37 +136,16 @@ export default class Publisher implements IPublisher {
         return await this.deleteFromGithub(path);
     }
 
-    // DONE
-    private async uploadToGithub(path: string, content: string) {
+    private async uploadToR2(path: string, content: string) {
         if (!validateSettings(this.settings)) {
             throw {}
         }
 
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Add content ${path}`,
-            content,
-            sha: ''
-        };
-
         try {
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                path
-            });
-            if (response.status === 200 && response.data.type === "file") {
-                payload.message = `Update content ${path}`;
-                payload.sha = response.data.sha;
-            }
-
+            await axios.put(`${this.settings.publishUrl}${path}`, content);
         } catch {
-            // don't fail, file just doesn't exist in the repo yet
+            throw {}
         }
-        await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
     // DONE
@@ -195,6 +175,7 @@ export default class Publisher implements IPublisher {
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
+
     private async prepareAssociatedAssets(text: string, filePath: string) {
         const assets: { images: Array<{ path: string, content: string }> } = {
             images: [],

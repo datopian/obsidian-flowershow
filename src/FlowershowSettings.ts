@@ -1,9 +1,7 @@
 export const DEFAULT_SETTINGS: FlowershowSettings = {
-	githubRepo: '',
-	githubToken: '',
-	githubUserName: '',
+	publishUrl: '',
+
 	gardenBaseUrl: '',
-	prHistory: [],
 	baseTheme: "dark",
 	theme: '{"name": "default", "modes": ["dark"]}',
 	faviconPath: '',
@@ -45,11 +43,10 @@ export const DEFAULT_SETTINGS: FlowershowSettings = {
 }
 
 export interface FlowershowSettings {
-	githubToken: string;
-	githubRepo: string;
-	githubUserName: string;
+	publishUrl: string
+
+	// TODO review if we need any of these
 	gardenBaseUrl: string;
-	prHistory: string[];
 
 	theme: string;
 	baseTheme: string;

@@ -56,7 +56,6 @@ export default class Flowershow extends Plugin {
 
 	async addCommands() {
 
-		// DONE
 		this.addCommand({
 			id: 'publish-note',
 			name: 'Publish Single Note',
@@ -68,7 +67,6 @@ export default class Flowershow extends Plugin {
 			}
 		});
 
-		// DONE
 		this.addCommand({
 			id: 'publish-all-notes',
 			name: 'Publish All Notes',
@@ -81,7 +79,6 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-	// DONE
 	async publishSingleNote() {
 		try {
 			const currentFile = this.app.workspace.getActiveFile();
@@ -106,7 +103,6 @@ export default class Flowershow extends Plugin {
 		}
 	}
 
-	// DONE
 	async publishAllNotes() {
 		const statusBarItem = this.addStatusBarItem();
 		try {
@@ -131,14 +127,15 @@ export default class Flowershow extends Plugin {
 					new Notice(`Unable to publish note ${file.path}, skipping it.`)
 				}
 			}
-			for (const path of notesToDelete) {
-				try {
-					// statusBar.increment();
-					await this.publisher.unpublishNote(path);
-				} catch {
-					new Notice(`Unable to delete note ${path}, skipping it.`)
-				}
-			}
+			// TODO
+			// for (const path of notesToDelete) {
+			// 	try {
+			// 		// statusBar.increment();
+			// 		await this.publisher.unpublishNote(path);
+			// 	} catch {
+			// 		new Notice(`Unable to delete note ${path}, skipping it.`)
+			// 	}
+			// }
 
 			statusBar.finish(8000);
 
