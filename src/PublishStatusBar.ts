@@ -1,4 +1,3 @@
-// DONE
 export default class PublishStatusBar {
     publishCounter: number;
     publishTotal: number;

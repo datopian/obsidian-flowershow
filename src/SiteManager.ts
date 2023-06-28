@@ -117,7 +117,6 @@ export default class SiteManager implements ISiteManager {
         return hashes;
     }
 
-    // DONE
     // TODO can we remove this and have only one method that handles both notes and images? do we need to decode URI here?
     async getImageHashes(): Promise<PathToHashDict> {
         const octokit = new Octokit({ auth: this.settings.githubToken });

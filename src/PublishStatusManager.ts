@@ -29,7 +29,6 @@ export default class PublishStatusManager implements IPublishStatusManager {
         this.publisher = publisher;
     }
 
-    // DONE
     async getPublishStatus(): Promise<PublishStatus> {
         const unpublishedNotes: Array<TFile> = [];
         const publishedNotes: Array<TFile> = [];
@@ -66,7 +65,6 @@ export default class PublishStatusManager implements IPublishStatusManager {
         return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths: [] };
     }
 
-    // DONE
     private getDeletedPaths(remotePaths: Array<string>, localPaths: Array<string>): Array<string> {
         return remotePaths.filter((p) => !localPaths.includes(p))
     }

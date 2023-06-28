@@ -41,14 +41,12 @@ export default class Publisher implements IPublisher {
         await this.uploadAssets(assets);
     }
 
-    // DONE
     async unpublishNote(notePath: string) {
         await this.deleteMarkdown(notePath);
         // TODO
         // await this.deleteAssets(notePath);
     }
 
-    // DONE
     async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
@@ -71,7 +69,6 @@ export default class Publisher implements IPublisher {
         };
     }
 
-    // DONE
     private async uploadMarkdown(content: string, filePath: string) {
         await this.uploadToR2(filePath, content)
     }
@@ -160,14 +157,12 @@ export default class Publisher implements IPublisher {
         return assets;
     }
 
-    // DONE
     private async readImageToBase64(file: TFile): Promise<string> {
         const image = await this.vault.readBinary(file);
         const imageBase64 = arrayBufferToBase64(image)
         return imageBase64;
     }
 
-    // DONE
     private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
         const embeddedImageFiles: { [path: string]: TFile } = {};
 

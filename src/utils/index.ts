@@ -13,7 +13,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
 	return Base64.btoa(binary);
 }
 
-// DONE
 function extractBaseUrl(url: string) {
 	return url && url.replace("https://", "").replace("http://", "").replace(/\/$/, '')
 }

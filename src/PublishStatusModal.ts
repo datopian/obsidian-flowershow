@@ -35,12 +35,10 @@ export default class PublishStatusModal implements IPublishStatusModal {
         this.initialize();
     }
 
-    // DONE
     open() {
         this.modal.open();
     }
 
-    // DONE
     private async initialize() {
         this.modal.titleEl.innerText = "🌷 Flowershow";
         this.modal.contentEl.addClass("digital-garden-publish-status-view");
@@ -57,7 +55,6 @@ export default class PublishStatusModal implements IPublishStatusModal {
         this.modal.onClose = () => this.clearStatus(); // TODO: is this even needed?
     }
 
-    // DONE
     private createSection(title: string, buttonText: string, buttonCallback: () => Promise<void>): Array<HTMLElement> {
         const headerContainer = this.modal.contentEl.createEl("div");
         headerContainer.addClass("header-container");
@@ -98,7 +95,6 @@ export default class PublishStatusModal implements IPublishStatusModal {
         return [counter, collapsableList];
     }
 
-    // DONE
     private async populateStatus() {
         this.publishStatus = await this.publishStatusManager.getPublishStatus();
         const { publishedNotes, unpublishedNotes, changedNotes, deletedNotePaths } = this.publishStatus;
@@ -146,12 +142,10 @@ export default class PublishStatusModal implements IPublishStatusModal {
         this.progressContainer.innerText = ``;
     }
 
-    // DONE
     private async refreshStatus() {
         await this.populateStatus();
     }
 
-    // DONE
     private async clearStatus() {
         this.publishedCounter.textContent = ``;
         this.publishedList.textContent = ``;
@@ -163,7 +157,6 @@ export default class PublishStatusModal implements IPublishStatusModal {
         this.unpublishedList.textContent = ``;
     }
 
-    // DONE
     private async publishUnpublishedNotes() {
         const { unpublishedNotes } = this.publishStatus;
 
@@ -187,7 +180,6 @@ export default class PublishStatusModal implements IPublishStatusModal {
         await this.refreshStatus();
     }
 
-    // DONE
     private async publishChangedNotes() {
         const publishStatus = await this.publishStatusManager.getPublishStatus();
         const changed = publishStatus.changedNotes;
@@ -208,7 +200,6 @@ export default class PublishStatusModal implements IPublishStatusModal {
         await this.refreshStatus();
     }
 
-    // DONE
     private async unpublishNotes() {
         const { deletedNotePaths } = this.publishStatus;
 
