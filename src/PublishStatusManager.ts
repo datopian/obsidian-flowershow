@@ -36,7 +36,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
         const changedNotes: Array<TFile> = [];
 
         const remoteNoteHashes = await this.siteManager.getNoteHashes();
-        const remoteImageHashes = await this.siteManager.getImageHashes();
+        // const remoteImageHashes = await this.siteManager.getImageHashes();
 
         const { notes, assets } = await this.publisher.getFilesMarkedForPublishing();
 
@@ -55,14 +55,15 @@ export default class PublishStatusManager implements IPublishStatusManager {
         }
 
         const deletedNotePaths = this.getDeletedPaths(Object.keys(remoteNoteHashes), notes.map((f) => f.path));
-        const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteImageHashes), assets);
+        // const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteImageHashes), assets);
 
         unpublishedNotes.sort();
         publishedNotes.sort();
         changedNotes.sort();
         deletedNotePaths.sort();
 
-        return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths };
+        // return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths };
+        return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths: [] };
     }
 
     // DONE

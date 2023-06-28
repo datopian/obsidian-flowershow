@@ -1,6 +1,6 @@
 import { Base64 } from "js-base64";
 import slugify from "@sindresorhus/slugify";
-import sha1 from "crypto-js/sha1";
+import { BinaryLike, createHash } from 'crypto'
 import { MetadataCache } from "obsidian";
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -31,12 +31,16 @@ function generateUrlPath(filePath: string, slugifyPath = true): string {
 	return extensionLessPath.split("/").map(x => slugify(x)).join("/") + "/";
 }
 
-function generateBlobHash(content: string) {
-	const byteLength = (new TextEncoder().encode(content)).byteLength;
-	const header = `blob ${byteLength}\0`;
-	const gitBlob = header + content;
+// function generateBlobHash(content: string) {
+// 	const byteLength = (new TextEncoder().encode(content)).byteLength;
+// 	const header = `blob ${byteLength}\0`;
+// 	const gitBlob = header + content;
 
-	return sha1(gitBlob).toString();
+// 	return sha1(gitBlob).toString();
+// }
+
+function generateBlobHash(content: string) {
+	return createHash('sha256').update(content).digest('hex')
 }
 
 function kebabize(str: string) {

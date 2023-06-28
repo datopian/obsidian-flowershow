@@ -1,13 +1,8 @@
 import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
 import { FlowershowSettings } from "./FlowershowSettings";
-import { Base64 } from "js-base64";
-import { Octokit } from "@octokit/core";
 import axios from "axios";
-// import { arrayBufferToBase64, getGardenPathForNote, getRewriteRules } from "./utils";
-import { arrayBufferToBase64 } from "./utils";
+import { arrayBufferToBase64, generateBlobHash } from "./utils";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
-// import { excaliDrawBundle, excalidraw } from "./constants";
-// import LZString from "lz-string";
 
 
 export interface MarkedForPublishing {
@@ -17,8 +12,8 @@ export interface MarkedForPublishing {
 
 export interface IPublisher {
     publishNote(file: TFile): Promise<void>;
-    unpublishNote(path: string): Promise<void>;
     prepareMarkdown(file: TFile): Promise<string>;
+    unpublishNote(path: string): Promise<void>;
     getFilesMarkedForPublishing(): Promise<MarkedForPublishing>;
 }
 
@@ -28,9 +23,6 @@ export default class Publisher implements IPublisher {
     private settings: FlowershowSettings;
     // private rewriteRules: Array<Array<string>>;
 
-    private notesFolder = "content";
-    private assetsFolder = "public";
-
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
         this.metadataCache = metadataCache;
@@ -38,16 +30,15 @@ export default class Publisher implements IPublisher {
         // this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
     }
 
-    // DONE
     async publishNote(file: TFile) {
         if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
             throw {}
         }
         const markdown = await this.prepareMarkdown(file);
-        // const assets = await this.prepareAssociatedAssets(markdown, file.path);
+        const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
         await this.uploadMarkdown(markdown, file.path);
-        // await this.uploadAssets(assets);
+        await this.uploadAssets(assets);
     }
 
     // DONE
@@ -55,15 +46,6 @@ export default class Publisher implements IPublisher {
         await this.deleteMarkdown(notePath);
         // TODO
         // await this.deleteAssets(notePath);
-    }
-
-    // DONE
-    async prepareMarkdown(file: TFile): Promise<string> {
-        // if (file.name.endsWith(".excalidraw.md")) {
-        //     return await this.generateExcalidrawMarkdown(file, true);
-        // }
-
-        return await this.vault.read(file);
     }
 
     // DONE
@@ -76,7 +58,7 @@ export default class Publisher implements IPublisher {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
             if (!frontMatter || !frontMatter["isDraft"]) {
                 notesToPublish.push(file);
-                const text = await this.vault.read(file);
+                const text = await this.prepareMarkdown(file);
                 const images = await this.extractEmbeddedImageFiles(text, file.path);
                 Object.keys(images).forEach((i) => assetsToPublish.add(i));
                 // ... other assets?
@@ -91,17 +73,14 @@ export default class Publisher implements IPublisher {
 
     // DONE
     private async uploadMarkdown(content: string, filePath: string) {
-        const path = `${this.notesFolder}/${filePath}`
-        await this.uploadToR2(path, content)
+        await this.uploadToR2(filePath, content)
     }
 
 
     private async deleteMarkdown(filePath: string) {
-        const path = `${this.notesFolder}/${filePath}`
-        await this.deleteFromGithub(path)
+        await this.deleteFromR2(filePath)
     }
 
-    // DONE
     private async uploadAssets(assets: any) {
         // TODO types
         // TODO can there be anything else in assets obj than assets.images?
@@ -119,21 +98,12 @@ export default class Publisher implements IPublisher {
         }
     }
 
-    // DONE
     private async uploadImage(filePath: string, content: string) {
-        const publicPath = `${this.assetsRepoPath}/${filePath}`
-        await this.uploadToGithub(publicPath, content)
-        // TODO temporarily we also need to upload the image to the content folder
-        // so that shortened Obsidian image embeds can be resolved
-        // in the future, copying the image to the public folder could be done when building the site
-        const contentPath = `${this.notesFolder}/${filePath}`
-        await this.uploadToGithub(contentPath, content)
+        await this.uploadToR2(filePath, content)
     }
 
-    // DONE
     private async deleteImage(filePath: string) {
-        const path = `${this.assetsRepoPath}/${filePath}`
-        return await this.deleteFromGithub(path);
+        return await this.deleteFromR2(filePath);
     }
 
     private async uploadToR2(path: string, content: string) {
@@ -141,39 +111,34 @@ export default class Publisher implements IPublisher {
             throw {}
         }
 
+        const hash = generateBlobHash(content);
+        console.log({ hash })
+
         try {
-            await axios.put(`${this.settings.publishUrl}${path}`, content);
+            await axios.put(`${this.settings.publishUrl}${path}`, content, {
+                headers: {
+                    "X-Content-SHA256": hash
+                }
+            });
         } catch {
             throw {}
         }
     }
 
-    // DONE
-    private async deleteFromGithub(path: string) {
+    private async deleteFromR2(path: string) {
         if (!validateSettings(this.settings)) {
             throw {}
         }
 
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Delete content ${path}`,
-            sha: ''
-        };
-
-        const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path
-        });
-
-        if (response.status === 200 && response.data.type === "file") {
-            payload.sha = response.data.sha;
+        try {
+            await axios.delete(`${this.settings.publishUrl}${path}`);
+        } catch {
+            throw {}
         }
+    }
 
-        await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
+    async prepareMarkdown(file: TFile): Promise<string> {
+        return await this.vault.read(file);
     }
 
     private async prepareAssociatedAssets(text: string, filePath: string) {

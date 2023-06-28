@@ -1,6 +1,7 @@
-import FlowershowSettings from "src/FlowershowSettings";
+import { FlowershowSettings } from "src/FlowershowSettings";
 import { MetadataCache, TFile } from "obsidian";
 import { extractBaseUrl, generateUrlPath, getGardenPathForNote, getRewriteRules } from "./utils";
+import axios from "axios";
 import { Octokit } from "@octokit/core";
 import { Base64 } from 'js-base64';
 import FlowershowPluginInfo from "./FlowershowPluginInfo";
@@ -19,6 +20,7 @@ export default class SiteManager implements ISiteManager {
     settings: FlowershowSettings;
     metadataCache: MetadataCache;
     rewriteRules: Array<Array<string>>;
+
     constructor(metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.settings = settings;
         this.metadataCache = metadataCache;
@@ -100,23 +102,15 @@ export default class SiteManager implements ISiteManager {
     }
 
 
-    // DONE
+    // TODO rename?
     async getNoteHashes(): Promise<PathToHashDict> {
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        //Force the cache to be updated
-        const response = await octokit.request(`GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=${Math.ceil(Math.random() * 1000)}`, {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            tree_sha: 'HEAD'
-        });
-
-        const files = response.data.tree;
-        const notes: Array<{ path: string, sha: string }> = files.filter(
-            (file: { path: string; type: string; }) => file.path.startsWith("content/") && file.type === "blob" && file.path !== "content/config.mjs");
+        const response = await axios.get(`${this.settings.publishUrl}`);
+        // R2 objects
+        // TODO types
+        const notes: Array<any> = response.data.objects;
 
         const hashes: PathToHashDict = notes.reduce((dict: PathToHashDict, note) => {
-            const vaultPath = note.path.replace("content/", "");
-            dict[vaultPath] = note.sha;
+            dict[note.key] = note.checksums.sha256;
             return dict
         }, {});
 

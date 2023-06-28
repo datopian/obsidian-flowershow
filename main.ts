@@ -110,6 +110,9 @@ export default class Flowershow extends Plugin {
 			new Notice('Processing files to publish...');
 
 			const { unpublishedNotes, changedNotes, deletedNotePaths } = await this.publishStatusManager.getPublishStatus();
+
+			console.log({ unpublishedNotes, changedNotes, deletedNotePaths });
+
 			const notesToPublish: TFile[] = changedNotes.concat(unpublishedNotes);
 			const notesToDelete: string[] = deletedNotePaths;
 			// TODO what about images to publish?
@@ -127,15 +130,15 @@ export default class Flowershow extends Plugin {
 					new Notice(`Unable to publish note ${file.path}, skipping it.`)
 				}
 			}
-			// TODO
-			// for (const path of notesToDelete) {
-			// 	try {
-			// 		// statusBar.increment();
-			// 		await this.publisher.unpublishNote(path);
-			// 	} catch {
-			// 		new Notice(`Unable to delete note ${path}, skipping it.`)
-			// 	}
-			// }
+
+			for (const path of notesToDelete) {
+				try {
+					// statusBar.increment();
+					await this.publisher.unpublishNote(path);
+				} catch {
+					new Notice(`Unable to delete note ${path}, skipping it.`)
+				}
+			}
 
 			statusBar.finish(8000);
 
