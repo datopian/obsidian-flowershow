@@ -1,92 +1,119 @@
 export const DEFAULT_SETTINGS: FlowershowSettings = {
-	publishUrl: '',
-
-	gardenBaseUrl: '',
-	baseTheme: "dark",
-	theme: '{"name": "default", "modes": ["dark"]}',
-	faviconPath: '',
-	noteSettingsIsInitialized: false,
-	siteName: 'Digital Garden',
-	slugifyEnabled: true,
-	// Note Icon Related Settings
-	noteIconKey: "dg-note-icon",
-	defaultNoteIcon: '',
-	showNoteIconOnTitle: false,
-	showNoteIconInFileTree: false,
-	showNoteIconOnInternalLink: false,
-	showNoteIconOnBackLink: false,
-
-	// Timestamp related settings
-	showCreatedTimestamp: false,
-	createdTimestampKey: "dg-created",
-	showUpdatedTimestamp: false,
-	updatedTimestampKey: "dg-updated",
-	timestampFormat: "MMM dd, yyyy h:mm a",
-
-	styleSettingsCss: '',
-	pathRewriteRules: '',
-
-	contentClassesKey: 'dg-content-classes',
-
-	defaultNoteSettings: {
-		dgHomeLink: true,
-		dgPassFrontmatter: false,
-		dgShowBacklinks: false,
-		dgShowLocalGraph: false,
-		dgShowInlineTitle: false,
-		dgShowFileTree: false,
-		dgEnableSearch: false,
-		dgShowToc: false,
-		dgLinkPreview: false,
-		dgShowTags: false
-	}
+	// Storage config
+	R2url: "",
+	// Flowershow config
+	title: "My Flowershow Site",
+	description: "",
+	author: "",
+	logo: "",
+	domain: "https://my-flowershow.app",
+	navbarTitle: {
+		logo: "",
+		text: "",
+		version: "",
+	},
+	editLinkRoot: "",
+	showEditLink: false,
+	showToc: true,
+	showSidebar: false,
+	showComments: false,
+	comments: {
+		provider: "giscus", // supported providers: giscus, utterances, disqus
+		pages: ["blog"], // page directories where we want commments
+		config: {
+			repo: "",
+			repositoryId: "",
+			category: "",
+			categoryId: "",
+		},
+	},
+	analytics: "",
+	navLinks: [
+		{ href: "/_all", name: "All" },
+	],
+	social: [],
+	search: {
+		provider: "algolia",
+		config: {
+			appId: process.env.NEXT_PUBLIC_DOCSEARCH_APP_ID,
+			apiKey: process.env.NEXT_PUBLIC_DOCSEARCH_API_KEY,
+			indexName: process.env.NEXT_PUBLIC_DOCSEARCH_INDEX_NAME,
+		},
+	},
+	nextSeo: {
+		titleTemplate: "%s | Flowershow",
+		description:
+			"Turn your markdown notes into an elegant website and tailor it to your needs. Flowershow is easy to use, fully-featured, Obsidian compatible and open-source.",
+		canonical: "https://flowershow.app",
+		openGraph: {
+			title: "Flowershow",
+			images: [
+				{
+					url: "https://flowershow.app/assets/images/frontpage-screenshot.jpg",
+					alt: "Flowershow",
+					width: 1200,
+					height: 627,
+					type: "image/jpg",
+				},
+			],
+		},
+		twitter: {
+			handle: "@flowershow",
+			site: "https://flowershow.app",
+			cardType: "summary_large_image",
+		},
+	},
 }
 
 export interface FlowershowSettings {
-	publishUrl: string
-
-	// TODO review if we need any of these
-	gardenBaseUrl: string;
-
-	theme: string;
-	baseTheme: string;
-	faviconPath: string;
-
-	siteName: string;
-
-	noteSettingsIsInitialized: boolean;
-
-	slugifyEnabled: boolean;
-
-	noteIconKey: string;
-	defaultNoteIcon: string;
-	showNoteIconOnTitle: boolean;
-	showNoteIconInFileTree: boolean;
-	showNoteIconOnInternalLink: boolean;
-	showNoteIconOnBackLink: boolean;
-
-	showCreatedTimestamp: boolean;
-	createdTimestampKey: string
-
-	showUpdatedTimestamp: boolean;
-	updatedTimestampKey: string;
-
-	timestampFormat: string;
-
-	styleSettingsCss: string;
-	pathRewriteRules: string;
-	contentClassesKey: string;
-
-	defaultNoteSettings: {
-		dgHomeLink: boolean;
-		dgPassFrontmatter: boolean;
-		dgShowBacklinks: boolean;
-		dgShowLocalGraph: boolean;
-		dgShowInlineTitle: boolean;
-		dgShowFileTree: boolean;
-		dgEnableSearch: boolean;
-		dgShowToc: boolean;
-		dgLinkPreview: boolean;
-		dgShowTags: boolean;
-	}
+	// Storage config
+	R2url: string,
+	// Flowershow config
+	title: string,
+	description: string,
+	author: string,
+	logo: string, // path to logo relative to content folder
+	domain: string,
+	navbarTitle: {
+		logo: string,
+		text: string,
+		version: string,
+	},
+	editLinkRoot: string, // e.g. "https://github.com/datopian/flowershow-app/edit/main",
+	showEditLink: boolean,
+	showToc: boolean,
+	showSidebar: boolean,
+	showComments: boolean,
+	comments: {
+		provider: "giscus" | "utterances" | "disqus" | null,
+		pages: Array<string>, // page directories where commments should be enabled
+		config: any, // provider specific config
+	},
+	analytics: string, // Google Analytics ID, e.g. "UA-XXXXX-X"
+	navLinks: Array<{ href: string, name: string }>,
+	social: Array<{ href: string, label: string }>,
+	search: {
+		provider: "algolia" | "kbar",
+		config: any, // provider specific config
+	},
+	nextSeo: {
+		titleTemplate: string,
+		description: string,
+		canonical: string,
+		openGraph: {
+			title: string,
+			images: Array<{
+				url: string,
+				alt: string,
+				width: number,
+				height: number,
+				type: string,
+			}>
+		},
+		twitter: {
+			handle: string,
+			site: string,
+			cardType: string,
+		},
+	},
 }

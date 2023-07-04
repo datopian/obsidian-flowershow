@@ -1,16 +1,14 @@
-import { App, Notice, Plugin, PluginSettingTab, ButtonComponent, addIcon, Modal, TFile } from 'obsidian';
+import { Notice, Plugin, addIcon, TFile } from 'obsidian';
 
 import { FlowershowSettings, DEFAULT_SETTINGS } from 'src/FlowershowSettings';
 import Publisher, { IPublisher } from 'src/Publisher';
 import PublishStatusBar from 'src/PublishStatusBar';
 import PublishStatusManager from 'src/PublishStatusManager';
 import PublishStatusModal from 'src/PublishStatusModal';
-import SettingView from 'src/SettingView';
-import SiteManager, { ISiteManager } from 'src/SiteManager';
+import StorageManager, { IStorageManager } from 'src/StorageManager';
+import SettingTab from "src/SettingTab";
 
 import { seedling } from 'src/constants';
-import ObsidianFrontMatterEngine from 'src/ObsidianFrontMatterEngine';
-
 
 export default class Flowershow extends Plugin {
 	appVersion: string;
@@ -18,7 +16,7 @@ export default class Flowershow extends Plugin {
 
 	publishStatusModal: PublishStatusModal;
 	publisher: IPublisher;
-	siteManager: ISiteManager;
+	storageManager: IStorageManager;
 	publishStatusManager: PublishStatusManager;
 
 	async onload() {
@@ -27,10 +25,10 @@ export default class Flowershow extends Plugin {
 
 		await this.loadSettings();
 		this.publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
-		this.siteManager = new SiteManager(this.app.metadataCache, this.settings);
-		this.publishStatusManager = new PublishStatusManager(this.siteManager, this.publisher);
+		this.storageManager = new StorageManager(this.app.metadataCache, this.settings);
+		this.publishStatusManager = new PublishStatusManager(this.storageManager, this.publisher);
 
-		this.addSettingTab(new FlowershowSettingTab(this.app, this));
+		this.addSettingTab(new SettingTab(this.app, this));
 		await this.addCommands();
 
 		addIcon('digital-garden-icon', seedling);
@@ -171,7 +169,7 @@ export default class Flowershow extends Plugin {
 
 	openPublishStatusModal() {
 		if (!this.publishStatusModal) {
-			const siteManager = new SiteManager(this.app.metadataCache, this.settings);
+			const siteManager = new StorageManager(this.app.metadataCache, this.settings);
 			const publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
 			const publishStatusManager = new PublishStatusManager(siteManager, publisher);
 			this.publishStatusModal = new PublishStatusModal(this.app, publishStatusManager, publisher, this.settings);
@@ -180,56 +178,3 @@ export default class Flowershow extends Plugin {
 	}
 
 }
-
-class FlowershowSettingTab extends PluginSettingTab {
-	plugin: Flowershow;
-
-	constructor(app: App, plugin: Flowershow) {
-		super(app, plugin);
-		this.plugin = plugin;
-
-		if (!this.plugin.settings.noteSettingsIsInitialized) {
-			const siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
-			siteManager.updateEnv();
-			this.plugin.settings.noteSettingsIsInitialized = true;
-			this.plugin.saveData(this.plugin.settings);
-		}
-	}
-
-
-	async display(): Promise<void> {
-		const { containerEl } = this;
-		const settingView = new SettingView(this.app, containerEl, this.plugin.settings, async () => await this.plugin.saveData(this.plugin.settings));
-		const prModal = new Modal(this.app)
-		await settingView.initialize(prModal);
-
-
-		// const handlePR = async (button: ButtonComponent) => {
-		// 	settingView.renderLoading();
-		// 	button.setDisabled(true);
-
-		// 	try {
-		// 		const siteManager = new SiteManager(this.plugin.app.metadataCache, this.plugin.settings);
-
-		// 		const prUrl = await siteManager.createPullRequestWithSiteChanges()
-
-		// 		if (prUrl) {
-		// 			this.plugin.settings.prHistory.push(prUrl);
-		// 			await this.plugin.saveSettings();
-		// 		}
-		// 		settingView.renderSuccess(prUrl);
-		// 		button.setDisabled(false);
-
-		// 	} catch {
-		// 		settingView.renderError();
-		// 	}
-
-
-		// };
-		// settingView.renderCreatePr(prModal, handlePR);
-		// settingView.renderPullRequestHistory(prModal, this.plugin.settings.prHistory.reverse().slice(0, 10));
-	}
-}
-
-
-

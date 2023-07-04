@@ -12,7 +12,7 @@ export interface MarkedForPublishing {
 
 export interface IPublisher {
     publishNote(file: TFile): Promise<void>;
-    prepareMarkdown(file: TFile): Promise<string>;
+    prepareMarkdown(file: TFile): Promise<[string, object]>;
     unpublishNote(path: string): Promise<void>;
     getFilesMarkedForPublishing(): Promise<MarkedForPublishing>;
 }
@@ -34,10 +34,10 @@ export default class Publisher implements IPublisher {
         if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
             throw {}
         }
-        const markdown = await this.prepareMarkdown(file);
+        const [markdown, frontmatter] = await this.prepareMarkdown(file);
         const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
-        await this.uploadMarkdown(markdown, file.path);
+        await this.uploadMarkdown(markdown, frontmatter, file.path);
         await this.uploadAssets(assets);
     }
 
@@ -56,7 +56,7 @@ export default class Publisher implements IPublisher {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
             if (!frontMatter || !frontMatter["isDraft"]) {
                 notesToPublish.push(file);
-                const text = await this.prepareMarkdown(file);
+                const [text,] = await this.prepareMarkdown(file);
                 const images = await this.extractEmbeddedImageFiles(text, file.path);
                 Object.keys(images).forEach((i) => assetsToPublish.add(i));
                 // ... other assets?
@@ -69,8 +69,8 @@ export default class Publisher implements IPublisher {
         };
     }
 
-    private async uploadMarkdown(content: string, filePath: string) {
-        await this.uploadToR2(filePath, content)
+    private async uploadMarkdown(content: string, frontMatter: object, filePath: string) {
+        await this.uploadToR2(filePath, content, frontMatter);
     }
 
 
@@ -103,18 +103,21 @@ export default class Publisher implements IPublisher {
         return await this.deleteFromR2(filePath);
     }
 
-    private async uploadToR2(path: string, content: string) {
+    private async uploadToR2(path: string, markdown: string, metadata?: object) {
         if (!validateSettings(this.settings)) {
             throw {}
         }
 
-        const hash = generateBlobHash(content);
-        console.log({ hash })
+        const hash = generateBlobHash(markdown);
 
         try {
-            await axios.put(`${this.settings.publishUrl}${path}`, content, {
+            await axios.put(`${this.settings.publishUrl}${path}`, {
+                markdown,
+                metadata
+            }, {
                 headers: {
-                    "X-Content-SHA256": hash
+                    "X-Content-SHA256": hash,
+                    "Content-Type": "application/json"
                 }
             });
         } catch {
@@ -134,8 +137,11 @@ export default class Publisher implements IPublisher {
         }
     }
 
-    async prepareMarkdown(file: TFile): Promise<string> {
-        return await this.vault.read(file);
+    async prepareMarkdown(file: TFile): Promise<[string, object]> {
+        const frontMatter = this.metadataCache.getCache(file.path).frontmatter
+        const text = await this.vault.read(file);
+
+        return [text, frontMatter];
     }
 
     private async prepareAssociatedAssets(text: string, filePath: string) {

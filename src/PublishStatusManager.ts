@@ -1,6 +1,6 @@
 import { TFile } from "obsidian";
 
-import { ISiteManager } from "./SiteManager";
+import { IStorageManager } from "./StorageManager";
 import { IPublisher } from "./Publisher";
 import { generateBlobHash } from "./utils";
 
@@ -17,15 +17,12 @@ export interface IPublishStatusManager {
     getPublishStatus(): Promise<PublishStatus>;
 }
 
-
-// TODO move everything from publish status manager to siteManager or publisher?
-// def. don't pass siteManager and publisher to publishStatusManager
 export default class PublishStatusManager implements IPublishStatusManager {
-    private siteManager: ISiteManager;
+    private storageManager: IStorageManager;
     private publisher: IPublisher;
 
-    constructor(siteManager: ISiteManager, publisher: IPublisher) {
-        this.siteManager = siteManager;
+    constructor(storageManager: IStorageManager, publisher: IPublisher) {
+        this.storageManager = storageManager;
         this.publisher = publisher;
     }
 
@@ -34,7 +31,7 @@ export default class PublishStatusManager implements IPublishStatusManager {
         const publishedNotes: Array<TFile> = [];
         const changedNotes: Array<TFile> = [];
 
-        const remoteNoteHashes = await this.siteManager.getNoteHashes();
+        const remoteNoteHashes = await this.storageManager.getObjectsHashes();
         // const remoteImageHashes = await this.siteManager.getImageHashes();
 
         const { notes, assets } = await this.publisher.getFilesMarkedForPublishing();
@@ -45,8 +42,8 @@ export default class PublishStatusManager implements IPublishStatusManager {
                 unpublishedNotes.push(file);
             } else {
                 publishedNotes.push(file);
-                const content = await this.publisher.prepareMarkdown(file);
-                const localHash = generateBlobHash(content);
+                const [markdown,] = await this.publisher.prepareMarkdown(file);
+                const localHash = generateBlobHash(markdown);
                 if (remoteHash !== localHash) {
                     changedNotes.push(file);
                 }

@@ -1,15 +1,15 @@
+import { debounce, Notice, Setting } from 'obsidian';
+
 import { FlowershowSettings } from './FlowershowSettings';
-// import { Notice, Setting, App, debounce, MetadataCache, getIcon } from 'obsidian';
-import { Notice, Setting, App, debounce, MetadataCache } from 'obsidian';
-import SiteManager from './SiteManager';
+import StorageManager from './StorageManager';
 
 export default class SettingView {
     private settingsRootElement: HTMLElement;
     private settings: FlowershowSettings;
     private saveSettings: () => Promise<void>;
-    debouncedSaveAndUpdate = debounce(this.saveSiteSettingsAndUpdateEnv, 500, true);
+    debouncedSaveSiteSettingsAndUpdateConfig = debounce(this.saveSiteSettingsAndUpdateConfigFile, 1000, true);
 
-    constructor(_app: App, settingsRootElement: HTMLElement, settings: FlowershowSettings, saveSettings: () => Promise<void>) {
+    constructor(settingsRootElement: HTMLElement, settings: FlowershowSettings, saveSettings: () => Promise<void>) {
         this.settingsRootElement = settingsRootElement;
         this.settings = settings;
         this.saveSettings = saveSettings;
@@ -20,45 +20,70 @@ export default class SettingView {
         this.settingsRootElement.classList.add("dg-settings");
         this.settingsRootElement.createEl('h1', { text: 'Flowershow Settings' });
 
-        // TODO
         // const linkDiv = this.settingsRootElement.createEl('div');
         // linkDiv.addClass("pr-link");
         // linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
         // linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/flowershow" });
 
-        // this.settingsRootElement.createEl('h3', { text: 'Flowershow Authentication (required)' }).prepend(getIcon("flowershow"));
-        this.initializePublishUrlSetting()
+        // TODO some authentication stuff
+
+        // this.settingsRootElement.createEl('h3', { text: 'R2 worker URL (required)' }).prepend(getIcon("flowershow"));
+        this.settingsRootElement.createEl('h3', { text: 'R2 worker URL (required)' })
+        this.initializeR2UrlSetting()
+
+        this.settingsRootElement.createEl('h3', { text: 'Flowershow site settings' }).prepend('🌷 ');
+        this.initializeFlowershowSettings();
     }
 
-    // TODO do we need this?
-    private async saveSiteSettingsAndUpdateEnv(metadataCache: MetadataCache, settings: FlowershowSettings, saveSettings: () => Promise<void>) {
-        // const octokit = new Octokit({ auth: settings.githubToken });
+    // TODO temporary solution
+    private initializeR2UrlSetting() {
+        new Setting(this.settingsRootElement)
+            .setName('R2 Worker URL')
+            .setDesc('❗️TEMPORARY')
+            .addText(text => text
+                .setValue(this.settings.R2url)
+                .onChange(async (value) => {
+                    this.settings.R2url = value;
+                    await this.saveSettings();
+                }));
+    }
+
+    private initializeFlowershowSettings() {
+        new Setting(this.settingsRootElement)
+            .setName('Site title')
+            .setDesc('TBD')
+            .addText(text => text
+                .setValue(this.settings.title)
+                .onChange(async (value) => {
+                    this.settings.title = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Site description')
+            .setDesc('TBD')
+            .addText(text => text
+                .setValue(this.settings.description)
+                .onChange(async (value) => {
+                    this.settings.description = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+    }
+
+    // TODO add the rest of the settings
+
+    private async saveSiteSettingsAndUpdateConfigFile() {
         let updateFailed = false;
         try {
-            const gardenManager = new SiteManager(metadataCache, settings)
-            await gardenManager.updateEnv();
+            const gardenManager = new StorageManager(this.settings.R2url)
+            await gardenManager.updateConfigFile(this.settings);
         } catch {
             new Notice("Failed to update settings. Make sure you have an internet connection.")
             updateFailed = true;
         }
 
         if (!updateFailed) {
-            await saveSettings();
+            await this.saveSettings();
         }
-    }
-
-    // TODO temporary solution
-    private initializePublishUrlSetting() {
-        new Setting(this.settingsRootElement)
-            .setName('Publish URL')
-            // .setDesc('TBD')
-            .addText(text => text
-                // .setPlaceholder('')
-                .setValue(this.settings.publishUrl)
-                .onChange(async (value) => {
-                    this.settings.publishUrl = value;
-                    await this.saveSettings();
-                }));
-
     }
 }
