@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import { TFile, Vault } from "obsidian";
 
 import { IStorageManager } from "./StorageManager";
 import { IPublisher } from "./Publisher";
@@ -18,10 +18,12 @@ export interface IPublishStatusManager {
 }
 
 export default class PublishStatusManager implements IPublishStatusManager {
+    private vault: Vault;
     private storageManager: IStorageManager;
     private publisher: IPublisher;
 
-    constructor(storageManager: IStorageManager, publisher: IPublisher) {
+    constructor(vault: Vault, storageManager: IStorageManager, publisher: IPublisher) {
+        this.vault = vault;
         this.storageManager = storageManager;
         this.publisher = publisher;
     }
@@ -31,35 +33,33 @@ export default class PublishStatusManager implements IPublishStatusManager {
         const publishedNotes: Array<TFile> = [];
         const changedNotes: Array<TFile> = [];
 
-        const remoteNoteHashes = await this.storageManager.getObjectsHashes();
-        // const remoteImageHashes = await this.siteManager.getImageHashes();
+        const remoteFilesHashes = await this.storageManager.getObjectsHashes();
+        const { notes, assets } = await this.publisher.getNotesAndAssetsToPublish();
 
-        const { notes, assets } = await this.publisher.getFilesMarkedForPublishing();
-
-        for (const file of notes) {
-            const remoteHash = remoteNoteHashes[file.path];
+        for (const note of notes) {
+            const remoteHash = remoteFilesHashes[note.path];
             if (!remoteHash) {
-                unpublishedNotes.push(file);
+                unpublishedNotes.push(note);
             } else {
-                publishedNotes.push(file);
-                const [markdown,] = await this.publisher.prepareMarkdown(file);
+                publishedNotes.push(note);
+                const markdown = await this.vault.read(note);
                 const localHash = generateBlobHash(markdown);
                 if (remoteHash !== localHash) {
-                    changedNotes.push(file);
+                    changedNotes.push(note);
                 }
             }
         }
 
-        const deletedNotePaths = this.getDeletedPaths(Object.keys(remoteNoteHashes), notes.map((f) => f.path));
-        // const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteImageHashes), assets);
+        const deletedNotePaths = this.getDeletedPaths(Object.keys(remoteFilesHashes), notes.map((f) => f.path));
+        const deletedImagePaths = this.getDeletedPaths(Object.keys(remoteFilesHashes), assets);
 
         unpublishedNotes.sort();
         publishedNotes.sort();
         changedNotes.sort();
         deletedNotePaths.sort();
+        deletedImagePaths.sort();
 
-        // return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths };
-        return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths: [] };
+        return { unpublishedNotes, publishedNotes, changedNotes, deletedNotePaths, deletedImagePaths };
     }
 
     private getDeletedPaths(remotePaths: Array<string>, localPaths: Array<string>): Array<string> {

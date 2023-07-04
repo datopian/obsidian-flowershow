@@ -1,41 +1,40 @@
-import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
-import { FlowershowSettings } from "./FlowershowSettings";
 import axios from "axios";
-import { arrayBufferToBase64, generateBlobHash } from "./utils";
+import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
+
+import { FlowershowSettings } from "./FlowershowSettings";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
+import { arrayBufferToBase64, generateBlobHash } from "./utils";
 
-
-export interface MarkedForPublishing {
+export interface NotesAndAssetsToPublish {
     notes: TFile[],
     assets: string[]
 }
 
 export interface IPublisher {
     publishNote(file: TFile): Promise<void>;
-    prepareMarkdown(file: TFile): Promise<[string, object]>;
     unpublishNote(path: string): Promise<void>;
-    getFilesMarkedForPublishing(): Promise<MarkedForPublishing>;
+    getNotesAndAssetsToPublish(): Promise<NotesAndAssetsToPublish>;
 }
 
 export default class Publisher implements IPublisher {
     private vault: Vault;
     private metadataCache: MetadataCache;
     private settings: FlowershowSettings;
-    // private rewriteRules: Array<Array<string>>;
 
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
         this.metadataCache = metadataCache;
         this.settings = settings;
-        // this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
     }
 
     async publishNote(file: TFile) {
-        if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
+        const frontmatter = this.metadataCache.getCache(file.path).frontmatter
+        const markdown = await this.vault.read(file);
+
+        if (!validatePublishFrontmatter(frontmatter)) {
             throw {}
         }
-        const [markdown, frontmatter] = await this.prepareMarkdown(file);
-        const assets = await this.prepareAssociatedAssets(markdown, file.path);
+        const assets = await this.extractEmbeddedAssetsFromMarkdown(markdown, file.path);
 
         await this.uploadMarkdown(markdown, frontmatter, file.path);
         await this.uploadAssets(assets);
@@ -47,7 +46,7 @@ export default class Publisher implements IPublisher {
         // await this.deleteAssets(notePath);
     }
 
-    async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
+    async getNotesAndAssetsToPublish(): Promise<NotesAndAssetsToPublish> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
         const assetsToPublish: Set<string> = new Set();
@@ -56,8 +55,8 @@ export default class Publisher implements IPublisher {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
             if (!frontMatter || !frontMatter["isDraft"]) {
                 notesToPublish.push(file);
-                const [text,] = await this.prepareMarkdown(file);
-                const images = await this.extractEmbeddedImageFiles(text, file.path);
+                const markdown = await this.vault.read(file);
+                const images = await this.extractEmbeddedImageTFilesFromMarkdown(markdown, file.path);
                 Object.keys(images).forEach((i) => assetsToPublish.add(i));
                 // ... other assets?
             }
@@ -96,7 +95,7 @@ export default class Publisher implements IPublisher {
     }
 
     private async uploadImage(filePath: string, content: string) {
-        await this.uploadToR2(filePath, content)
+        await this.uploadImageToR2(filePath, content)
     }
 
     private async deleteImage(filePath: string) {
@@ -111,7 +110,7 @@ export default class Publisher implements IPublisher {
         const hash = generateBlobHash(markdown);
 
         try {
-            await axios.put(`${this.settings.publishUrl}${path}`, {
+            await axios.put(`${this.settings.R2url}${path}`, {
                 markdown,
                 metadata
             }, {
@@ -131,50 +130,37 @@ export default class Publisher implements IPublisher {
         }
 
         try {
-            await axios.delete(`${this.settings.publishUrl}${path}`);
+            await axios.delete(`${this.settings.R2url}${path}`);
         } catch {
             throw {}
         }
     }
 
-    async prepareMarkdown(file: TFile): Promise<[string, object]> {
-        const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-        const text = await this.vault.read(file);
-
-        return [text, frontMatter];
-    }
-
-    private async prepareAssociatedAssets(text: string, filePath: string) {
+    private async extractEmbeddedAssetsFromMarkdown(markdown: string, filePath: string) {
         const assets: { images: Array<{ path: string, content: string }> } = {
             images: [],
             // ... other assets
         };
 
-        const imagePathsToTFilesMap = await this.extractEmbeddedImageFiles(text, filePath);
+        const imageTFiles: { [path: string]: TFile } = await this.extractEmbeddedImageTFilesFromMarkdown(markdown, filePath);
 
-        for (const path in imagePathsToTFilesMap) {
-            const image = imagePathsToTFilesMap[path];
+        for (const path in imageTFiles) {
+            const image = imageTFiles[path];
             assets.images.push({
                 path,
-                content: await this.readImageToBase64(image)
+                content: await this.readImageTFileToBase64(image)
             });
 
         }
         return assets;
     }
 
-    private async readImageToBase64(file: TFile): Promise<string> {
-        const image = await this.vault.readBinary(file);
-        const imageBase64 = arrayBufferToBase64(image)
-        return imageBase64;
-    }
-
-    private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
+    private async extractEmbeddedImageTFilesFromMarkdown(markdown: string, filePath: string): Promise<{ [path: string]: TFile }> {
         const embeddedImageFiles: { [path: string]: TFile } = {};
 
         //![[image.png]]
         const embeddedImageRegex = /!\[\[(.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))(?:\|(.*?))?\]\]/g;
-        const embeddedImageMatches = [...text.matchAll(embeddedImageRegex)];
+        const embeddedImageMatches = [...markdown.matchAll(embeddedImageRegex)];
 
         if (embeddedImageMatches) {
             for (let i = 0; i < embeddedImageMatches.length; i++) {
@@ -196,7 +182,7 @@ export default class Publisher implements IPublisher {
 
         //![](image.png) TODO check this regex
         const imageRegex = /!\[.*?\]\((.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))\)/g;
-        const imageMatches = [...text.matchAll(imageRegex)];
+        const imageMatches = [...markdown.matchAll(imageRegex)];
 
         if (imageMatches) {
             for (let i = 0; i < imageMatches.length; i++) {
@@ -221,5 +207,11 @@ export default class Publisher implements IPublisher {
         }
 
         return embeddedImageFiles;
+    }
+
+    private async readImageTFileToBase64(file: TFile): Promise<string> {
+        const image = await this.vault.readBinary(file);
+        const imageBase64 = arrayBufferToBase64(image)
+        return imageBase64;
     }
 }

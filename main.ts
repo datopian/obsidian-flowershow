@@ -25,8 +25,8 @@ export default class Flowershow extends Plugin {
 
 		await this.loadSettings();
 		this.publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
-		this.storageManager = new StorageManager(this.app.metadataCache, this.settings);
-		this.publishStatusManager = new PublishStatusManager(this.storageManager, this.publisher);
+		this.storageManager = new StorageManager(this.settings.R2url);
+		this.publishStatusManager = new PublishStatusManager(this.app.vault, this.storageManager, this.publisher);
 
 		this.addSettingTab(new SettingTab(this.app, this));
 		await this.addCommands();
@@ -169,9 +169,9 @@ export default class Flowershow extends Plugin {
 
 	openPublishStatusModal() {
 		if (!this.publishStatusModal) {
-			const siteManager = new StorageManager(this.app.metadataCache, this.settings);
+			const siteManager = new StorageManager(this.settings.R2url);
 			const publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
-			const publishStatusManager = new PublishStatusManager(siteManager, publisher);
+			const publishStatusManager = new PublishStatusManager(this.app.vault, siteManager, publisher);
 			this.publishStatusModal = new PublishStatusModal(this.app, publishStatusManager, publisher, this.settings);
 		}
 		this.publishStatusModal.open();
