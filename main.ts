@@ -32,8 +32,8 @@ export default class Flowershow extends Plugin {
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
 
-		addIcon('digital-garden-icon', seedling);
-		this.addRibbonIcon("digital-garden-icon", "Digital Garden Publication Center", async () => {
+		addIcon('flowershow-icon', seedling);
+		this.addRibbonIcon("flowershow-icon", "Publish With Flowershow", async () => {
 			this.openPublishStatusModal();
 		});
 	}
