@@ -38,9 +38,8 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-	onunload() {
-		console.log('unloading plugin')
-	}
+	// onunload() {
+	// }
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
