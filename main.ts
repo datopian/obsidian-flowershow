@@ -33,7 +33,7 @@ export default class Flowershow extends Plugin {
 		await this.addCommands();
 
 		addIcon('flowershow-icon', seedling);
-		this.addRibbonIcon("flowershow-icon", "Publish With Flowershow", async () => {
+		this.addRibbonIcon("flowershow-icon", "Publish with Flowershow", async () => {
 			this.openPublishStatusModal();
 		});
 	}
@@ -53,7 +53,7 @@ export default class Flowershow extends Plugin {
 
 		this.addCommand({
 			id: 'publish-note',
-			name: 'Publish Single Note',
+			name: 'Publish single note',
 			checkCallback: (checking: boolean) => {
 				if (checking) {
 					return !!this.app.workspace.getActiveFile();
@@ -64,7 +64,7 @@ export default class Flowershow extends Plugin {
 
 		this.addCommand({
 			id: 'publish-all-notes',
-			name: 'Publish All Notes',
+			name: 'Publish all notes',
 			checkCallback: (checking: boolean) => {
 				if (checking) {
 					return true
