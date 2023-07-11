@@ -183,12 +183,12 @@ class FlowershowSettingTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 
-		if (!this.plugin.settings.noteSettingsIsInitialized) {
-			const siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
-			siteManager.updateEnv();
-			this.plugin.settings.noteSettingsIsInitialized = true;
-			this.plugin.saveData(this.plugin.settings);
-		}
+		// if (!this.plugin.settings.noteSettingsIsInitialized) {
+		// 	const siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
+		// 	siteManager.updateEnv();
+		// 	this.plugin.settings.noteSettingsIsInitialized = true;
+		// 	this.plugin.saveData(this.plugin.settings);
+		// }
 	}
 
 
@@ -197,32 +197,6 @@ class FlowershowSettingTab extends PluginSettingTab {
 		const settingView = new SettingView(this.app, containerEl, this.plugin.settings, async () => await this.plugin.saveData(this.plugin.settings));
 		const prModal = new Modal(this.app)
 		await settingView.initialize(prModal);
-
-
-		// const handlePR = async (button: ButtonComponent) => {
-		// 	settingView.renderLoading();
-		// 	button.setDisabled(true);
-
-		// 	try {
-		// 		const siteManager = new SiteManager(this.plugin.app.metadataCache, this.plugin.settings);
-
-		// 		const prUrl = await siteManager.createPullRequestWithSiteChanges()
-
-		// 		if (prUrl) {
-		// 			this.plugin.settings.prHistory.push(prUrl);
-		// 			await this.plugin.saveSettings();
-		// 		}
-		// 		settingView.renderSuccess(prUrl);
-		// 		button.setDisabled(false);
-
-		// 	} catch {
-		// 		settingView.renderError();
-		// 	}
-
-
-		// };
-		// settingView.renderCreatePr(prModal, handlePR);
-		// settingView.renderPullRequestHistory(prModal, this.plugin.settings.prHistory.reverse().slice(0, 10));
 	}
 }
 
