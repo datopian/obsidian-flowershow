@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, ButtonComponent, addIcon, Modal, TFile } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile } from 'obsidian';
 
 import { FlowershowSettings, DEFAULT_SETTINGS } from 'src/FlowershowSettings';
 import Publisher, { IPublisher } from 'src/Publisher';
@@ -9,7 +9,6 @@ import SettingView from 'src/SettingView';
 import SiteManager, { ISiteManager } from 'src/SiteManager';
 
 import { seedling } from 'src/constants';
-import ObsidianFrontMatterEngine from 'src/ObsidianFrontMatterEngine';
 
 
 export default class Flowershow extends Plugin {
@@ -39,24 +38,20 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-	// DONE
 	onunload() {
 		console.log('unloading plugin')
 	}
 
-	// DONE
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	// DONE
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
 
 	async addCommands() {
 
-		// DONE
 		this.addCommand({
 			id: 'publish-note',
 			name: 'Publish Single Note',
@@ -68,7 +63,6 @@ export default class Flowershow extends Plugin {
 			}
 		});
 
-		// DONE
 		this.addCommand({
 			id: 'publish-all-notes',
 			name: 'Publish All Notes',
@@ -81,7 +75,6 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-	// DONE
 	async publishSingleNote() {
 		try {
 			const currentFile = this.app.workspace.getActiveFile();
@@ -106,7 +99,6 @@ export default class Flowershow extends Plugin {
 		}
 	}
 
-	// DONE
 	async publishAllNotes() {
 		const statusBarItem = this.addStatusBarItem();
 		try {
