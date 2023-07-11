@@ -2,11 +2,8 @@ import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
 import { FlowershowSettings } from "./FlowershowSettings";
 import { Base64 } from "js-base64";
 import { Octokit } from "@octokit/core";
-// import { arrayBufferToBase64, getGardenPathForNote, getRewriteRules } from "./utils";
 import { arrayBufferToBase64 } from "./utils";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
-// import { excaliDrawBundle, excalidraw } from "./constants";
-// import LZString from "lz-string";
 
 
 export interface MarkedForPublishing {
@@ -25,7 +22,6 @@ export default class Publisher implements IPublisher {
     private vault: Vault;
     private metadataCache: MetadataCache;
     private settings: FlowershowSettings;
-    // private rewriteRules: Array<Array<string>>;
 
     private notesRepoPath = "content";
     private assetsRepoPath = "public";
@@ -34,10 +30,8 @@ export default class Publisher implements IPublisher {
         this.vault = vault;
         this.metadataCache = metadataCache;
         this.settings = settings;
-        // this.rewriteRules = getRewriteRules(settings.pathRewriteRules);
     }
 
-    // DONE
     async publishNote(file: TFile) {
         if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
             throw {}
@@ -49,23 +43,16 @@ export default class Publisher implements IPublisher {
         await this.uploadAssets(assets);
     }
 
-    // DONE
     async unpublishNote(notePath: string) {
         await this.deleteMarkdown(notePath);
         // TODO
         // await this.deleteAssets(notePath);
     }
 
-    // DONE
     async prepareMarkdown(file: TFile): Promise<string> {
-        // if (file.name.endsWith(".excalidraw.md")) {
-        //     return await this.generateExcalidrawMarkdown(file, true);
-        // }
-
         return await this.vault.read(file);
     }
 
-    // DONE
     async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
         const files = this.vault.getMarkdownFiles();
         const notesToPublish = [];
@@ -88,7 +75,6 @@ export default class Publisher implements IPublisher {
         };
     }
 
-    // DONE
     private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
         const path = `${this.notesRepoPath}/${filePath}`
@@ -100,7 +86,6 @@ export default class Publisher implements IPublisher {
         await this.deleteFromGithub(path)
     }
 
-    // DONE
     private async uploadAssets(assets: any) {
         // TODO types
         // TODO can there be anything else in assets obj than assets.images?
@@ -118,7 +103,6 @@ export default class Publisher implements IPublisher {
         }
     }
 
-    // DONE
     private async uploadImage(filePath: string, content: string) {
         const publicPath = `${this.assetsRepoPath}/${filePath}`
         await this.uploadToGithub(publicPath, content)
@@ -129,13 +113,11 @@ export default class Publisher implements IPublisher {
         await this.uploadToGithub(contentPath, content)
     }
 
-    // DONE
     private async deleteImage(filePath: string) {
         const path = `${this.assetsRepoPath}/${filePath}`
         return await this.deleteFromGithub(path);
     }
 
-    // DONE
     private async uploadToGithub(path: string, content: string) {
         if (!validateSettings(this.settings)) {
             throw {}
@@ -168,7 +150,6 @@ export default class Publisher implements IPublisher {
         await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
     }
 
-    // DONE
     private async deleteFromGithub(path: string) {
         if (!validateSettings(this.settings)) {
             throw {}
@@ -195,6 +176,7 @@ export default class Publisher implements IPublisher {
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
+
     private async prepareAssociatedAssets(text: string, filePath: string) {
         const assets: { images: Array<{ path: string, content: string }> } = {
             images: [],
@@ -214,14 +196,12 @@ export default class Publisher implements IPublisher {
         return assets;
     }
 
-    // DONE
     private async readImageToBase64(file: TFile): Promise<string> {
         const image = await this.vault.readBinary(file);
         const imageBase64 = arrayBufferToBase64(image)
         return imageBase64;
     }
 
-    // DONE
     private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
         const embeddedImageFiles: { [path: string]: TFile } = {};
 
@@ -247,7 +227,6 @@ export default class Publisher implements IPublisher {
             }
         }
 
-        //![](image.png) TODO check this regex
         const imageRegex = /!\[.*?\]\((.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))\)/g;
         const imageMatches = [...text.matchAll(imageRegex)];
 
