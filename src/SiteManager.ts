@@ -1,9 +1,8 @@
-import FlowershowSettings from "src/FlowershowSettings";
+import { FlowershowSettings } from "src/FlowershowSettings";
 import { MetadataCache, TFile } from "obsidian";
 import { extractBaseUrl, generateUrlPath, getGardenPathForNote, getRewriteRules } from "./utils";
 import { Octokit } from "@octokit/core";
 import { Base64 } from 'js-base64';
-import FlowershowPluginInfo from "./FlowershowPluginInfo";
 
 
 export type PathToHashDict = { [key: string]: string };
@@ -12,7 +11,6 @@ export interface ISiteManager {
     getNoteUrl(file: TFile): string;
     getNoteHashes(): Promise<{ [key: string]: string }>;
     getImageHashes(): Promise<{ [key: string]: string }>;
-    createPullRequestWithSiteChanges(): Promise<string>;
 }
 
 export default class SiteManager implements ISiteManager {
@@ -145,187 +143,5 @@ export default class SiteManager implements ISiteManager {
         }, {});
 
         return hashes;
-    }
-
-    /**
-     *
-     * @returns {Promise<string>} The url of the created PR. Null if unable to create PR.
-     */
-    async createPullRequestWithSiteChanges(): Promise<string> {
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        const latestRelease = await octokit.request('GET /repos/{owner}/{repo}/releases/latest', {
-            owner: "oleeskild",
-            repo: "digitalgarden",
-        });
-
-        const templateVersion = latestRelease.data.tag_name;
-        const uuid = crypto.randomUUID();
-        const branchName = "update-template-to-v" + templateVersion + "-" + uuid;
-
-        const latestCommit = await octokit.request('GET /repos/{owner}/{repo}/commits/HEAD', {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-        });
-
-        await this.createNewBranch(octokit, branchName, latestCommit.data.sha);
-        await this.deleteFiles(octokit, branchName);
-        await this.addFilesIfMissing(octokit, branchName);
-        await this.modifyFiles(octokit, branchName);
-
-        const prUrl = await this.createPullRequest(octokit, branchName, templateVersion);
-        return prUrl;
-    }
-
-    private async createPullRequest(octokit: Octokit, branchName: string, templateVersion: string): Promise<string> {
-        try {
-            const repoInfo = await octokit.request('GET /repos/{owner}/{repo}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-            });
-
-            const defaultBranch = repoInfo.data.default_branch;
-
-            const pr = await octokit.request('POST /repos/{owner}/{repo}/pulls', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                title: `Update template to version ${templateVersion}`,
-                head: branchName,
-                base: defaultBranch,
-                body: `Update to latest template version.\n [Release Notes](https://github.com/oleeskild/digitalgarden/releases/tag/${templateVersion})`
-            });
-
-            return pr.data.html_url;
-        } catch {
-            //The PR failed, most likely the repo is the latest version
-            return null;
-        }
-
-
-    }
-    private async deleteFiles(octokit: Octokit, branchName: string) {
-        const pluginInfo = await this.getPluginInfo(octokit);
-
-        const filesToDelete = pluginInfo.filesToDelete;
-
-        for (const file of filesToDelete) {
-            try {
-                const latestFile = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: file,
-                    ref: branchName
-                });
-                await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: file,
-                    sha: latestFile.data.sha,
-                    message: `Delete ${file}`,
-                    branch: branchName
-                });
-            } catch (e) {
-                //Ignore if the file doesn't exist
-            }
-        }
-    }
-
-    private async modifyFiles(octokit: Octokit, branchName: string) {
-        const pluginInfo = await this.getPluginInfo(octokit);
-        const filesToModify = pluginInfo.filesToModify;
-
-        for (const file of filesToModify) {
-            //get from my repo
-            const latestFile = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: "oleeskild",
-                repo: "digitalgarden",
-                path: file,
-            });
-
-            let currentFile = {};
-            let fileExists = true;
-            try {
-                currentFile = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: file,
-                    ref: branchName
-                });
-            } catch (error) {
-                fileExists = false;
-            }
-
-
-            const fileHasChanged = latestFile.data.sha !== currentFile?.data?.sha;
-            if (!fileExists || fileHasChanged) {
-                //commit
-                await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: file,
-                    branch: branchName,
-                    message: `Update file ${file}`,
-                    content: latestFile.data.content,
-                    sha: fileExists ? currentFile.data.sha : null
-                });
-            }
-        }
-    }
-    private async createNewBranch(octokit: Octokit, branchName: string, sha: any) {
-        try {
-            const branch = await octokit.request('POST /repos/{owner}/{repo}/git/refs', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                ref: `refs/heads/${branchName}`,
-                sha: sha
-            });
-        } catch (e) {
-            //Ignore if the branch already exists
-        }
-    }
-
-    private async addFilesIfMissing(octokit: Octokit, branchName: string) {
-        //Should only be added if it does not exist yet. Otherwise leave it alone
-
-        const pluginInfo = await this.getPluginInfo(octokit);
-        const filesToAdd = pluginInfo.filesToAdd;
-
-        for (const filePath of filesToAdd) {
-
-            try {
-                await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: filePath,
-                    ref: branchName
-                });
-            } catch {
-                //Doesn't exist
-                const initialFile = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                    owner: "oleeskild",
-                    repo: "digitalgarden",
-                    path: filePath,
-                });
-
-                await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    path: filePath,
-                    branch: branchName,
-                    message: "Update template file",
-                    content: initialFile.data.content,
-                });
-            }
-        }
-    }
-
-    private async getPluginInfo(octokit: Octokit): Promise<FlowershowPluginInfo> {
-        const pluginInfoResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-            owner: "oleeskild",
-            repo: "digitalgarden",
-            path: "plugin-info.json",
-        });
-
-        const pluginInfo = JSON.parse(Base64.decode(pluginInfoResponse.data.content));
-        return pluginInfo as FlowershowPluginInfo;
     }
 }
