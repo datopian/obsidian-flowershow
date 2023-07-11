@@ -52,7 +52,7 @@ export default class SettingView {
             .setName('GitHub repo name')
             .setDesc('The name of the GitHub repository')
             .addText(text => text
-                .setPlaceholder('mydigitalgarden')
+                .setPlaceholder('mygithubrepo')
                 .setValue(this.settings.githubRepo)
                 .onChange(async (value) => {
                     this.settings.githubRepo = value;
