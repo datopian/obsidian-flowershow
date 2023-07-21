@@ -28,7 +28,7 @@ export default class Publisher implements IPublisher {
     }
 
     async publishNote(file: TFile) {
-        const frontmatter = this.metadataCache.getCache(file.path).frontmatter
+        const frontmatter = this.metadataCache.getFileCache(file).frontmatter
         const markdown = await this.vault.read(file);
 
         if (!validatePublishFrontmatter(frontmatter)) {
@@ -95,7 +95,8 @@ export default class Publisher implements IPublisher {
     }
 
     private async uploadImage(filePath: string, content: string) {
-        await this.uploadImageToR2(filePath, content)
+        // await this.uploadImageToR2(filePath, content)
+        await this.uploadToR2(filePath, content)
     }
 
     private async deleteImage(filePath: string) {

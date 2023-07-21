@@ -12,9 +12,9 @@ export function validatePublishFrontmatter(frontMatter: FrontMatterCache): boole
 }
 
 export function validateSettings(settings: FlowershowSettings): boolean {
-    if (!settings.publishUrl) {
+    if (!settings.R2url) {
         // TODO
-        new Notice("Config error: You need to define a publish URL");
+        new Notice("Config error: You need to define an R2 worker URL");
         return false;
     }
     return true;

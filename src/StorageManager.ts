@@ -1,5 +1,7 @@
 import axios from "axios";
 import { FlowershowSettings } from "src/FlowershowSettings";
+import { generateBlobHash } from "./utils";
+import { validateSettings } from "./Validator";
 
 export type PathToHashDict = { [key: string]: string };
 
@@ -16,9 +18,26 @@ export default class StorageManager implements IStorageManager {
     }
 
     async updateConfigFile(settings: FlowershowSettings) {
-        // TODO implement
-        // 1. save to config.mjs
-        // 2. send to R2
+        // TODO merge this with uploadtToR2 method in Publisher
+        if (!validateSettings(settings)) {
+            throw {}
+        }
+
+        const settingsJSON = JSON.stringify(settings);
+        const hash = generateBlobHash(settingsJSON);
+
+        try {
+            await axios.put(`${settings.R2url}config.json`, {
+                markdown: settingsJSON // TODO this is not markdown
+            }, {
+                headers: {
+                    "X-Content-SHA256": hash,
+                    "Content-Type": "application/json"
+                }
+            });
+        } catch {
+            throw {}
+        }
     }
 
     // get hashes of all the notes and images stored in R2
