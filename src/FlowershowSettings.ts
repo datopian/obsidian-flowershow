@@ -20,12 +20,7 @@ export const DEFAULT_SETTINGS: FlowershowSettings = {
 	comments: {
 		provider: "giscus", // supported providers: giscus, utterances, disqus
 		pages: ["blog"], // page directories where we want commments
-		config: {
-			repo: "",
-			repositoryId: "",
-			category: "",
-			categoryId: "",
-		},
+		config: {},
 	},
 	// analytics: "",
 	navLinks: [],
