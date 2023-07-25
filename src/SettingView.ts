@@ -51,7 +51,6 @@ export default class SettingView {
     private initializeFlowershowSettings() {
         new Setting(this.settingsRootElement)
             .setName('Site title')
-            .setDesc('TBD')
             .addText(text => text
                 .setValue(this.settings.title)
                 .onChange(async (value) => {
@@ -61,13 +60,180 @@ export default class SettingView {
 
         new Setting(this.settingsRootElement)
             .setName('Site description')
-            .setDesc('TBD')
             .addText(text => text
                 .setValue(this.settings.description)
                 .onChange(async (value) => {
                     this.settings.description = value;
                     this.debouncedSaveSiteSettingsAndUpdateConfig();
                 }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Author')
+            .addText(text => text
+                .setValue(this.settings.author)
+                .onChange(async (value) => {
+                    this.settings.author = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Logo')
+            .setDesc('Relative path to logo image.')
+            .addText(text => text
+                .setValue(this.settings.logo)
+                .onChange(async (value) => {
+                    this.settings.logo = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Domain')
+            .addText(text => text
+                .setValue(this.settings.domain)
+                .onChange(async (value) => {
+                    this.settings.logo = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        this.settingsRootElement.createEl('h4', { text: 'Navbar title config' })
+
+        new Setting(this.settingsRootElement)
+            .setName('Navbar logo')
+            .addText(text => text
+                .setValue(this.settings.navbarTitle.logo)
+                .onChange(async (value) => {
+                    this.settings.navbarTitle.logo = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+
+        new Setting(this.settingsRootElement)
+            .setName('Navbar text')
+            .addText(text => text
+                .setValue(this.settings.navbarTitle.text)
+                .onChange(async (value) => {
+                    this.settings.navbarTitle.text = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Navbar version')
+            .addText(text => text
+                .setValue(this.settings.navbarTitle.version)
+                .onChange(async (value) => {
+                    this.settings.navbarTitle.version = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        this.settingsRootElement.createEl('hr')
+
+        new Setting(this.settingsRootElement)
+            .setName('Show edit link')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.showEditLink)
+                .onChange(async (value) => {
+                    this.settings.showEditLink = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Edit link root')
+            .addText(text => text
+                .setValue(this.settings.editLinkRoot)
+                .onChange(async (value) => {
+                    this.settings.editLinkRoot = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Show table of contents')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.showToc)
+                .onChange(async (value) => {
+                    this.settings.showToc = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Show sidebar')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.showSidebar)
+                .onChange(async (value) => {
+                    this.settings.showSidebar = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        this.settingsRootElement.createEl('h4', { text: 'Comments config' })
+
+        new Setting(this.settingsRootElement)
+            .setName('Show comments')
+            .addToggle(toggle => toggle
+                .setValue(this.settings.showComments)
+                .onChange(async (value) => {
+                    this.settings.showComments = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Comments provider')
+            .addDropdown(dropdown => dropdown
+                .addOption('disqus', 'Disqus')
+                .addOption('utterances', 'Utterances')
+                .addOption('giscus', 'Giscus')
+                .setValue(this.settings.comments.provider)
+                .onChange(async (value: 'disqus' | 'utterances' | 'giscus') => {
+                    this.settings.comments.provider = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Comments pages')
+            .setDesc('Comma separated list of directories where comments are enabled.')
+            .addText(text => text
+                .setValue(this.settings.comments.pages.join(','))
+                .setPlaceholder('blog,tutorials')
+                .onChange(async (value) => {
+                    this.settings.comments.pages = value.split(',');
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Comments config')
+            .setDesc('Config for the comments provider. See the docs for more info.')
+            .addTextArea(text => text
+                .setValue(this.settings.comments.config)
+                .onChange(async (value) => {
+                    this.settings.comments.config = JSON.parse(value);
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        this.settingsRootElement.createEl('hr')
+
+        new Setting(this.settingsRootElement)
+            .setName('Google analytics tracking ID')
+            .addText(text => text
+                .setValue(this.settings.analytics)
+                .onChange(async (value) => {
+                    this.settings.analytics = value;
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+        new Setting(this.settingsRootElement)
+            .setName('Navbar & footer links')
+            .setDesc('An array of links to show in the navbar and footer.')
+            .addTextArea(text => text
+                .setValue(this.settings.comments.config)
+                .setPlaceholder(`[
+{ "href": "/about", "name": "About" },
+{ "href": "/contact", "name": "Contact" }]`)
+                .onChange(async (value) => {
+                    this.settings.comments.config = JSON.parse(value);
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
+
+
+
+
     }
 
     // TODO add the rest of the settings
