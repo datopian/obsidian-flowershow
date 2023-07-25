@@ -2,7 +2,7 @@ export const DEFAULT_SETTINGS: FlowershowSettings = {
 	// Storage config
 	R2url: "",
 	// Flowershow config
-	title: "My Flowershow Site",
+	title: "",
 	description: "",
 	author: "",
 	logo: "",
@@ -28,9 +28,7 @@ export const DEFAULT_SETTINGS: FlowershowSettings = {
 		},
 	},
 	// analytics: "",
-	navLinks: [
-		{ href: "/about", name: "About" },
-	],
+	navLinks: [],
 	social: [],
 	// search: {
 	// 	provider: "algolia",
