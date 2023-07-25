@@ -28,7 +28,7 @@ export default class SettingView {
         // TODO some authentication stuff
 
         // this.settingsRootElement.createEl('h3', { text: 'R2 worker URL (required)' }).prepend(getIcon("flowershow"));
-        this.settingsRootElement.createEl('h3', { text: 'R2 worker URL (required)' })
+        this.settingsRootElement.createEl('h3', { text: 'R2 worker URL (❗️TEMPORARY)' })
         this.initializeR2UrlSetting()
 
         this.settingsRootElement.createEl('h3', { text: 'Flowershow site settings' }).prepend('🌷 ');
@@ -39,7 +39,6 @@ export default class SettingView {
     private initializeR2UrlSetting() {
         new Setting(this.settingsRootElement)
             .setName('R2 Worker URL')
-            .setDesc('❗️TEMPORARY')
             .addText(text => text
                 .setValue(this.settings.R2url)
                 .onChange(async (value) => {
@@ -86,16 +85,16 @@ export default class SettingView {
                     this.debouncedSaveSiteSettingsAndUpdateConfig();
                 }));
 
-        new Setting(this.settingsRootElement)
-            .setName('Domain')
-            .addText(text => text
-                .setValue(this.settings.domain)
-                .onChange(async (value) => {
-                    this.settings.logo = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Domain')
+        //     .addText(text => text
+        //         .setValue(this.settings.domain)
+        //         .onChange(async (value) => {
+        //             this.settings.logo = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        this.settingsRootElement.createEl('h4', { text: 'Navbar title config' })
+        // this.settingsRootElement.createEl('h4', { text: 'Navbar title config' })
 
         new Setting(this.settingsRootElement)
             .setName('Navbar logo')
@@ -125,25 +124,25 @@ export default class SettingView {
                     this.debouncedSaveSiteSettingsAndUpdateConfig();
                 }));
 
-        this.settingsRootElement.createEl('hr')
+        // this.settingsRootElement.createEl('hr')
 
-        new Setting(this.settingsRootElement)
-            .setName('Show edit link')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.showEditLink)
-                .onChange(async (value) => {
-                    this.settings.showEditLink = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Show edit link')
+        //     .addToggle(toggle => toggle
+        //         .setValue(this.settings.showEditLink)
+        //         .onChange(async (value) => {
+        //             this.settings.showEditLink = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        new Setting(this.settingsRootElement)
-            .setName('Edit link root')
-            .addText(text => text
-                .setValue(this.settings.editLinkRoot)
-                .onChange(async (value) => {
-                    this.settings.editLinkRoot = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Edit link root')
+        //     .addText(text => text
+        //         .setValue(this.settings.editLinkRoot)
+        //         .onChange(async (value) => {
+        //             this.settings.editLinkRoot = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
         new Setting(this.settingsRootElement)
             .setName('Show table of contents')
@@ -163,76 +162,111 @@ export default class SettingView {
                     this.debouncedSaveSiteSettingsAndUpdateConfig();
                 }));
 
-        this.settingsRootElement.createEl('h4', { text: 'Comments config' })
+        // this.settingsRootElement.createEl('h4', { text: 'Comments config' })
 
-        new Setting(this.settingsRootElement)
-            .setName('Show comments')
-            .addToggle(toggle => toggle
-                .setValue(this.settings.showComments)
-                .onChange(async (value) => {
-                    this.settings.showComments = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Show comments')
+        //     .addToggle(toggle => toggle
+        //         .setValue(this.settings.showComments)
+        //         .onChange(async (value) => {
+        //             this.settings.showComments = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        new Setting(this.settingsRootElement)
-            .setName('Comments provider')
-            .addDropdown(dropdown => dropdown
-                .addOption('disqus', 'Disqus')
-                .addOption('utterances', 'Utterances')
-                .addOption('giscus', 'Giscus')
-                .setValue(this.settings.comments.provider)
-                .onChange(async (value: 'disqus' | 'utterances' | 'giscus') => {
-                    this.settings.comments.provider = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Comments provider')
+        //     .addDropdown(dropdown => dropdown
+        //         .addOption('disqus', 'Disqus')
+        //         .addOption('utterances', 'Utterances')
+        //         .addOption('giscus', 'Giscus')
+        //         .setValue(this.settings.comments.provider)
+        //         .onChange(async (value: 'disqus' | 'utterances' | 'giscus') => {
+        //             this.settings.comments.provider = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        new Setting(this.settingsRootElement)
-            .setName('Comments pages')
-            .setDesc('Comma separated list of directories where comments are enabled.')
-            .addText(text => text
-                .setValue(this.settings.comments.pages.join(','))
-                .setPlaceholder('blog,tutorials')
-                .onChange(async (value) => {
-                    this.settings.comments.pages = value.split(',');
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Comments pages')
+        //     .setDesc('Comma separated list of directories where comments are enabled.')
+        //     .addText(text => text
+        //         .setValue(this.settings.comments.pages.join(','))
+        //         .onChange(async (value) => {
+        //             this.settings.comments.pages = value.split(',');
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        new Setting(this.settingsRootElement)
-            .setName('Comments config')
-            .setDesc('Config for the comments provider. See the docs for more info.')
-            .addTextArea(text => text
-                .setValue(this.settings.comments.config)
-                .onChange(async (value) => {
-                    this.settings.comments.config = JSON.parse(value);
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Comments config')
+        //     .setDesc('Config for the comments provider. See the docs for more info.')
+        //     .addTextArea(text => text
+        //         .setValue(JSON.stringify(this.settings.comments.config, null, 2))
+        //         .onChange(async (value) => {
+        //             this.settings.comments.config = JSON.parse(value);
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
-        this.settingsRootElement.createEl('hr')
+        // this.settingsRootElement.createEl('hr')
 
-        new Setting(this.settingsRootElement)
-            .setName('Google analytics tracking ID')
-            .addText(text => text
-                .setValue(this.settings.analytics)
-                .onChange(async (value) => {
-                    this.settings.analytics = value;
-                    this.debouncedSaveSiteSettingsAndUpdateConfig();
-                }));
+        // new Setting(this.settingsRootElement)
+        //     .setName('Google analytics tracking ID')
+        //     .addText(text => text
+        //         .setValue(this.settings.analytics)
+        //         .onChange(async (value) => {
+        //             this.settings.analytics = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
         new Setting(this.settingsRootElement)
             .setName('Navbar & footer links')
             .setDesc('An array of links to show in the navbar and footer.')
             .addTextArea(text => text
-                .setValue(this.settings.comments.config)
-                .setPlaceholder(`[
-{ "href": "/about", "name": "About" },
-{ "href": "/contact", "name": "Contact" }]`)
+                .setValue(JSON.stringify(this.settings.navLinks, null, 2))
                 .onChange(async (value) => {
                     this.settings.comments.config = JSON.parse(value);
                     this.debouncedSaveSiteSettingsAndUpdateConfig();
                 }));
 
+        new Setting(this.settingsRootElement)
+            .setName('Social links')
+            .setDesc('An array of social links to show in the navbar.')
+            .addTextArea(text => text
+                .setValue(JSON.stringify(this.settings.social, null, 2))
+                .onChange(async (value) => {
+                    this.settings.social = JSON.parse(value);
+                    this.debouncedSaveSiteSettingsAndUpdateConfig();
+                }));
 
+        // new Setting(this.settingsRootElement)
+        //     .setName('Search provider')
+        //     .setDesc('Search provider to use for the search box in the navbar.')
+        //     .addDropdown(dropdown => dropdown
+        //         .addOption('algolia', 'Algolia')
+        //         .addOption('kbar', 'Kbar')
+        //         .setValue(this.settings.search.provider)
+        //         .onChange(async (value: 'algolia' | 'kbar') => {
+        //             this.settings.search.provider = value;
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
+        // new Setting(this.settingsRootElement)
+        //     .setName('Search config')
+        //     .setDesc('Config for the search provider. See the docs for more info.')
+        //     .addTextArea(text => text
+        //         .setValue(JSON.stringify(this.settings.search.config, null, 2))
+        //         .onChange(async (value) => {
+        //             this.settings.search.config = JSON.parse(value);
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
+
+        // new Setting(this.settingsRootElement)
+        //     .setName('NextSEO config')
+        //     .setDesc('Config for the NextSEO component. See the docs for more info.')
+        //     .addTextArea(text => text
+        //         .setValue(JSON.stringify(this.settings.nextSeo, null, 2))
+        //         .onChange(async (value) => {
+        //             this.settings.nextSeo = JSON.parse(value);
+        //             this.debouncedSaveSiteSettingsAndUpdateConfig();
+        //         }));
 
     }
 
