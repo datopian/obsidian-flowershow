@@ -48,6 +48,9 @@ export default class StorageManager implements IStorageManager {
         const objects: Array<any> = response.data.objects;
 
         const hashes: PathToHashDict = objects.reduce((dict: PathToHashDict, note) => {
+            if (note.key === "config.json") {
+                return dict
+            }
             dict[note.key] = note.checksums.sha256;
             return dict
         }, {});
