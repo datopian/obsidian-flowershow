@@ -4,8 +4,8 @@ import { FlowershowSettings } from "./FlowershowSettings";
 
 
 export function validatePublishFrontmatter(frontMatter: FrontMatterCache): boolean {
-    if (frontMatter && frontMatter["isDraft"]) {
-        new Notice("Note is marked as draft. Please remove `isDraft` from the frontmatter and again.")
+    if (frontMatter && frontMatter["publish"] === false) {
+        new Notice("Note is marked as not publishable.")
         return false;
     }
     return true;

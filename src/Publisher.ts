@@ -60,7 +60,7 @@ export default class Publisher implements IPublisher {
 
         for (const file of files) {
             const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-            if (!frontMatter || !frontMatter["isDraft"]) {
+            if (!frontMatter || frontMatter["publish"] !== false) {
                 notesToPublish.push(file);
                 const text = await this.vault.read(file);
                 const images = await this.extractEmbeddedImageFiles(text, file.path);

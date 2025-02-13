@@ -35,7 +35,7 @@ Clicking on it will pull up the Publication Status panel, which includes:
 
 ### Frontmatter settings
 
-* `isDraft` - Set to `true` to keep the note unpublished from your Flowershow site (or unpublish it if it was published before). Default: `false`.
+* `publish` - Set to `false` to keep the note unpublished from your Flowershow site (or unpublish it if it was published before).
 
 ## Development
 
