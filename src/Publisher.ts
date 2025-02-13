@@ -23,8 +23,8 @@ export default class Publisher implements IPublisher {
     private metadataCache: MetadataCache;
     private settings: FlowershowSettings;
 
-    private notesRepoPath = "content";
-    private assetsRepoPath = "public";
+    private notesRepoPath = "";
+    private assetsRepoPath = "";
 
     constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
         this.vault = vault;
@@ -77,26 +77,21 @@ export default class Publisher implements IPublisher {
 
     private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
-        const path = `${this.notesRepoPath}/${filePath}`
-        await this.uploadToGithub(path, content)
+        await this.uploadToGithub(filePath, content)
     }
 
     private async deleteMarkdown(filePath: string) {
-        const path = `${this.notesRepoPath}/${filePath}`
-        await this.deleteFromGithub(path)
+        await this.deleteFromGithub(filePath)
     }
 
-    private async uploadAssets(assets: any) {
-        // TODO types
-        // TODO can there be anything else in assets obj than assets.images?
-        // TODO check if assets already published?
+    private async uploadAssets(assets: { images: Array<{ path: string, content: string }> }) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
             await this.uploadImage(image.path, image.content);
         }
     }
 
-    private async deleteAssets(assets: any) {
+    private async deleteAssets(assets: { images: Array<{ path: string }> }) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
             await this.deleteImage(image.path);
@@ -104,18 +99,11 @@ export default class Publisher implements IPublisher {
     }
 
     private async uploadImage(filePath: string, content: string) {
-        const publicPath = `${this.assetsRepoPath}/${filePath}`
-        await this.uploadToGithub(publicPath, content)
-        // TODO temporarily we also need to upload the image to the content folder
-        // so that shortened Obsidian image embeds can be resolved
-        // in the future, copying the image to the public folder could be done when building the site
-        const contentPath = `${this.notesRepoPath}/${filePath}`
-        await this.uploadToGithub(contentPath, content)
+        await this.uploadToGithub(filePath, content)
     }
 
     private async deleteImage(filePath: string) {
-        const path = `${this.assetsRepoPath}/${filePath}`
-        return await this.deleteFromGithub(path);
+        return await this.deleteFromGithub(filePath);
     }
 
     private async uploadToGithub(path: string, content: string) {
@@ -139,9 +127,13 @@ export default class Publisher implements IPublisher {
                 repo: this.settings.githubRepo,
                 path
             });
-            if (response.status === 200 && response.data.type === "file") {
+            
+            // Handle both single file and directory responses
+            const fileData = Array.isArray(response.data) ? null : response.data;
+            
+            if (response.status === 200 && fileData?.type === "file") {
                 payload.message = `Update content ${path}`;
-                payload.sha = response.data.sha;
+                payload.sha = fileData.sha;
             }
 
         } catch {
@@ -170,8 +162,11 @@ export default class Publisher implements IPublisher {
             path
         });
 
-        if (response.status === 200 && response.data.type === "file") {
-            payload.sha = response.data.sha;
+        // Handle both single file and directory responses
+        const fileData = Array.isArray(response.data) ? null : response.data;
+        
+        if (response.status === 200 && fileData?.type === "file") {
+            payload.sha = fileData.sha;
         }
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
