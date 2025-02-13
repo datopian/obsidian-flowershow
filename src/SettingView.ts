@@ -25,9 +25,9 @@ export default class SettingView {
         linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
         linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/obsidian-flowershow" });
 
-        this.settingsRootElement.createEl('h3', { text: 'GitHub Authentication (required)' }).prepend(getIcon("github"));
-        this.initializeGitHubRepoSetting();
+        this.settingsRootElement.createEl('h3', { text: 'GitHub Authentication' }).prepend(getIcon("github"));
         this.initializeGitHubUserNameSetting();
+        this.initializeGitHubRepoSetting();
         this.initializeGitHubTokenSetting();
     }
 
@@ -49,8 +49,8 @@ export default class SettingView {
 
     private initializeGitHubRepoSetting() {
         new Setting(this.settingsRootElement)
-            .setName('GitHub repo name')
-            .setDesc('The name of the GitHub repository')
+            .setName('Repository name')
+            .setDesc('Name of the GitHub repository linked to your Flowershow site')
             .addText(text => text
                 .setPlaceholder('mygithubrepo')
                 .setValue(this.settings.githubRepo)
@@ -63,8 +63,8 @@ export default class SettingView {
 
     private initializeGitHubUserNameSetting() {
         new Setting(this.settingsRootElement)
-            .setName('GitHub Username')
-            .setDesc('Your GitHub Username')
+            .setName('Username')
+            .setDesc('Your GitHub username')
             .addText(text => text
                 .setPlaceholder('myusername')
                 .setValue(this.settings.githubUserName)
@@ -79,7 +79,7 @@ export default class SettingView {
         const desc = document.createDocumentFragment();
         desc.createEl("span", null, (span) => {
             span.innerText =
-                "A GitHub token with repo permissions. You can generate it ";
+                "GitHub personal access token with repository permissions. You can generate one ";
             span.createEl("a", null, (link) => {
                 link.href = "https://github.com/settings/tokens/new?scopes=repo";
                 link.innerText = "here!";
@@ -87,7 +87,7 @@ export default class SettingView {
         });
 
         new Setting(this.settingsRootElement)
-            .setName('GitHub token')
+            .setName('Personal Access Token')
             .setDesc(desc)
             .addText(text => text
                 .setPlaceholder('Secret Token')
