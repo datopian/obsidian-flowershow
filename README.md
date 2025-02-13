@@ -2,36 +2,52 @@
 
 Obsidian Flowershow plugin for publishing with [Flowershow](https://github.com/datopian/flowershow) direct from your Obsidian vault.
 
-## Docs
+## Getting Started
 
 ### Initial Setup
 
-1. Firstly, you will need a GitHub account. If you don't have it yet, create one [here](https://github.com/signup).
-2. You'll also need a Vercel account. You can sign up using your GitHub account [here](https://vercel.com/signup)
-3. Open [this repo](https://github.com/datopian/flowershow), and click the blue "Deploy" button under "Quick clone and deploy" section. This will open Vercel's "Create Git Repository" page. Pick a name for your site's repository and click "Create", to create a copy of the template repository in your GitHub account and deploy it to Vercel.
-4. Now you need to create a personal access token on GitHub, so that the plugin can add/delete notes to/from the repo. Go to [this page](https://github.com/settings/tokens/new?scopes=repo) while logged in to GitHub. The correct settings should already be applied. If you don't want to generate this every few months, choose the "No expiration" option. Click the "Generate token" button, and copy the token you are presented with on the next page. 
-5. In Obsidian open Flowershow plugin settings. Fill in your GitHub username, the name of the repo with your notes which you created in step 3. Lastly paste the token you created in step 4.
-6. Now, let's publish your first note! Create a new note in Obsidian.
-7. Open your command pallete by pressing CTRL+P on Windows/Linux (CMD+P on Mac) and find the "Flowershow: Publish Single Note" command. Press enter.
-8. Go to your site's URL which you should find on [Vercel](https://vercel.com/dashboard). If nothing shows up yet, wait a minute and refresh. Your Flowershow site with the note you just created should now be up and running.
+1. First, you will need a GitHub account. If you don't have one yet, create one [here](https://github.com/signup).
 
-Congratulations, you now have your own Flowershow site, hosted free of charge! 
-You can now start adding links as you usually would in Obisidan, with double square brackets like this: [[Some Other Note]], to the note that you just published. You can also link to a specific header by using the syntax [[Some Other Note#A Header]]. Remember to also publish the notes your are linking to as this will not happen automatically. 
+2. Go to our [GitHub template](https://github.com/datopian/flowershow) and click on the green "Use this template" button. Then, select "Create a new repository" option from the dropdown.
 
-### Commands
+3. Give your repository a name and choose whether you want to keep it private or public.
 
-* `Flowershow: Publish Single Note` - Publishes the current note to your Flowershow site.
-* `Flowershow: Publish All Notes` - Publishes all notes in your vault to your Flowershow site.
+4. Once the repository is created, click on the "Create New Site" button in your dashboard and choose the newly created GitHub repository to use as a base for your site.
 
-### Ribbon commands
+5. Wait for your repository to finish syncing with the content. Once done, you can click on the "Visit" button to see your created site.
 
-After installing the plugin, you'll see a new icon added to your Obsidian ribbon - 🌱.
-Clicking on it will pull up the Publication Status panel, which includes:
+6. Now you need to create a personal access token on GitHub, so that the plugin can sync your notes with the repository. Go to [this page](https://github.com/settings/tokens/new?scopes=repo) while logged in to GitHub. The correct settings should already be applied. If you don't want to generate this every few months, choose the "No expiration" option. Click the "Generate token" button, and copy the token you are presented with on the next page.
+
+### Publishing Your Notes
+
+1. Install and enable the Obsidian Flowershow plugin in your vault.
+
+2. Open the plugin settings and provide:
+   - Your GitHub username
+   - The name of the GitHub repository you created earlier
+   - The personal access token you generated
+
+3. Close the settings and click on the Flowershow icon in the ribbon.
+
+4. Click on "Sync all" to fully synchronize your site's content with your vault.
+
+Done! Your notes are ready to be shared with the world! 💐
+
+You can now start adding links as you usually would in Obsidian, with double square brackets like this: [[Some Other Note]]. You can also link to a specific header by using the syntax [[Some Other Note#A Header]].
+
+### Publication Status Panel
+
+The Flowershow icon in your ribbon opens the Publication Status panel, which shows:
 
 * **Published**: the total number of notes that has been published to your Flowershow site
 * **Changed**: the total number of __published__ notes that has been edited locally (+ button to publish them)
 * **Unpublished**: the total number of new notes in your Obsidian vault, that has not yet been published to your site (+ button to publish them)
 * **Deleted**: the total number of notes that has been deleted from your Obsidian vault, but are still published on your site (+ button to unpublish them)
+
+### Available Commands
+
+* `Flowershow: Publish Single Note` - Publishes the current note to your Flowershow site
+* `Flowershow: Publish All Notes` - Publishes all notes in your vault to your Flowershow site
 
 ### Frontmatter settings
 
@@ -81,4 +97,3 @@ Now, whenever you make any changes to the source code, two things will happen:
 ## Shoutout
 
 Big thanks to [Ole Eskild Steensen](https://github.com/oleeskild) for [his obsidian-digital-garden plugin](https://github.com/oleeskild/obsidian-digital-garden/tree/main) which inspired us and we got to build on.
-
