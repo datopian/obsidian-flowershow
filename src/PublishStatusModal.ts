@@ -42,9 +42,7 @@ export default class PublishStatusModal implements IPublishStatusModal {
 
     // DONE
     private async initialize() {
-        this.modal.titleEl.innerText = "🌷 Flowershow";
         this.modal.contentEl.addClass("digital-garden-publish-status-view");
-        this.modal.contentEl.createEl("h2", { text: "Publication Status" });
         this.progressContainer = this.modal.contentEl.createEl("div");
         this.progressContainer.addClass("progress-container");
 
