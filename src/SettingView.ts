@@ -22,8 +22,11 @@ export default class SettingView {
         this.settingsRootElement.createEl('h1', { text: 'Flowershow Settings' });
         const linkDiv = this.settingsRootElement.createEl('div');
         linkDiv.addClass("pr-link");
-        linkDiv.createEl('span', { text: 'Remember to read the setup guide if you haven\'t already. It can be found ' });
-        linkDiv.createEl('a', { text: 'here.', href: "https://github.com/datopian/obsidian-flowershow" });
+        linkDiv.createEl('span', { text: "Sign up to " });
+        linkDiv.createEl('a', { text: 'Flowershow ', href: "https://cloud.flowershow.app/" });
+        linkDiv.createEl('span', { text: "and follow " });
+        linkDiv.createEl('a', { text: 'the instructions ', href: "https://cloud.flowershow.app/obsidian-quickstart?ref=obsidian" });
+        linkDiv.createEl('span', { text: "for publishing an Obsidian vault on Flowershow." });
 
         this.settingsRootElement.createEl('h3', { text: 'GitHub Authentication' }).prepend(getIcon("github"));
         this.initializeGitHubUserNameSetting();
