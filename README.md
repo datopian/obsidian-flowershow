@@ -62,15 +62,19 @@ The Flowershow icon in your ribbon opens the Publication Status panel, which sho
 1. Clone the repository.
 2. Run `npm i` to install dependencies.
 3. Run `npm run build`.
-4. Create symlinks to the `main.js`, `manifest.json`, and `styles.css` files in your Obsidian plugins folder:
+4. Create the plugins directory in your Obsidian vault if it doesn't exist:
+```sh
+mkdir -p /path/to/obsidian-vault/.obsidian/plugins/flowershow
+```
+5. Create symlinks to the `main.js`, `manifest.json`, and `styles.css` files in your Obsidian plugins folder:
 
-``` sh
+```sh
 ln -s /path/to/obsidian-flowershow/main.js /path/to/obsidian-vault/.obsidian/plugins/flowershow/main.js
 ln -s /path/to/obsidian-flowershow/manifest.json /path/to/obsidian-vault/.obsidian/plugins/flowershow/manifest.json
 ln -s /path/to/obsidian-flowershow/styles.css /path/to/obsidian-vault/.obsidian/plugins/flowershow/styles.css
 ```
 
-5. Reload Obsidian, go to Settings > Community Plugins, and enable the plugin.
+6. Reload Obsidian, go to Settings > Community Plugins, and enable the plugin.
 
 ### Rebuild on change 
 
@@ -84,13 +88,13 @@ If you want true hot reloading, i.e. without needing to disable/enable the plugi
   - download the .zip file from the latest release
   - extract the .zip file into your Obsidian vault's `.obsidian/plugins` folder
   - go to Settings > Community Plugins and enable the plugin
-2. Instead of creating symlinks like in step 4 above, copy the plugin files directly into your Obsidian vault's `.obsidian/plugins` folder:
+2. Instead of creating symlinks like in step 4 above, copy/clone the plugin project directly into your Obsidian vault's `.obsidian/plugins` folder:
 
 ``` sh
 mv /path/to/obsidian-flowershow /path/to/obsidian-vault/.obsidian/plugins/
 ```
 
-3. Run `npm run dev` to start the server.
+3. Run `npm i && npm run dev` in the plugin folder to start the development server.
 
 Now, whenever you make any changes to the source code, two things will happen:
 1. The plugin will be rebuilt automatically.
