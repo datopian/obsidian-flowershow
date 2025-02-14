@@ -1,6 +1,6 @@
 {
     "name": "flowershow",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Obsidian Flowershow plugin for publishing with flowershow direct from your obsidian vault.",
     "main": "main.js",
     "scripts": {

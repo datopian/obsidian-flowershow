@@ -1,5 +1,5 @@
 import { FlowershowSettings } from "src/FlowershowSettings";
-import { MetadataCache, TFile } from "obsidian";
+import { MetadataCache } from "obsidian";
 import { Octokit } from "@octokit/core";
 
 
@@ -42,11 +42,10 @@ export default class SiteManager implements ISiteManager {
 
         const files = response.data.tree;
         const notes: Array<{ path: string, sha: string }> = files.filter(
-            (file: { path: string; type: string; }) => file.path.startsWith("content/") && file.type === "blob" && file.path !== "content/config.mjs");
+            (file: { path: string; type: string; }) => file.type === "blob" && file.path.endsWith(".md"));
 
         const hashes: PathToHashDict = notes.reduce((dict: PathToHashDict, note) => {
-            const vaultPath = note.path.replace("content/", "");
-            dict[vaultPath] = note.sha;
+            dict[note.path] = note.sha;
             return dict
         }, {});
 
@@ -65,11 +64,12 @@ export default class SiteManager implements ISiteManager {
 
         const files = response.data.tree;
         const images: Array<{ path: string, sha: string }> = files.filter(
-            (file: { path: string; type: string; }) => file.path.startsWith("public/") && file.type === "blob");
+            (file: { path: string; type: string; }) =>
+                file.type === "blob" &&
+                /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.path));
 
         const hashes: PathToHashDict = images.reduce((dict: PathToHashDict, img) => {
-            const vaultPath = decodeURI(img.path.replace("public/", "")); // TODO why do we need to decodeURI for images?
-            dict[vaultPath] = img.sha;
+            dict[decodeURI(img.path)] = img.sha;
             return dict
         }, {});
 

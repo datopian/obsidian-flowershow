@@ -8,7 +8,7 @@ import PublishStatusModal from 'src/PublishStatusModal';
 import SettingView from 'src/SettingView';
 import SiteManager, { ISiteManager } from 'src/SiteManager';
 
-import { seedling } from 'src/constants';
+import { flowershowIcon } from 'src/constants';
 
 
 export default class Flowershow extends Plugin {
@@ -32,7 +32,7 @@ export default class Flowershow extends Plugin {
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
 
-		addIcon('flowershow-icon', seedling);
+		addIcon('flowershow-icon', flowershowIcon);
 		this.addRibbonIcon("flowershow-icon", "Publish with Flowershow", async () => {
 			this.openPublishStatusModal();
 		});
