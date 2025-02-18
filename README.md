@@ -6,36 +6,23 @@ Obsidian Flowershow plugin for publishing with [Flowershow](https://flowershow.a
 
 ## Getting Started
 
-### Initial Setup
+### Create your site
 
-1. First, you will need a GitHub account. If you don't have one yet, create one [here](https://github.com/signup).
+1. Go to our [GitHub template repository](https://github.com/flowershow/flowershow-cloud-template/tree/main) and click "Use this template" button to create a new repository (can be private if you want). It will be used to synchronize between obsidian and Flowershow (plus it provides a handy backup!).
 
-2. Go to our [GitHub template](https://github.com/datopian/flowershow) and click on the green "Use this template" button. Then, select "Create a new repository" option from the dropdown.
+2. Click [here](https://datahub.io/new) and create a new site from that repository.
 
-3. Give your repository a name and choose whether you want to keep it private or public.
+3. When the site finishes syncing, click the "Visit" button to open it.
 
-4. Once the repository is created, click on the "Create New Site" button in your dashboard and choose the newly created GitHub repository to use as a base for your site.
+### Publish Obsidian vault
 
-5. Wait for your repository to finish syncing with the content. Once done, you can click on the "Visit" button to see your created site.
+4. If you haven't already, install and enable the Flowershow plugin in your Obsidian vault.
 
-6. Now you need to create a personal access token on GitHub, so that the plugin can sync your notes with the repository. Go to [this page](https://github.com/settings/tokens/new?scopes=repo) while logged in to GitHub. The correct settings should already be applied. If you don't want to generate this every few months, choose the "No expiration" option. Click the "Generate token" button, and copy the token you are presented with on the next page.
+5. In the plugin settings, enter your GitHub username, name of the repository you've created earlier and a GitHub Personal Access Token.
 
-### Publishing Your Notes
+6. Click the Flowershow icon in Obsidian ribbon and use available options to synchronize your vault's content with your site.
 
-1. Install and enable the Obsidian Flowershow plugin in your vault.
-
-2. Open the plugin settings and provide:
-   - Your GitHub username
-   - The name of the GitHub repository you created earlier
-   - The personal access token you generated
-
-3. Close the settings and click on the Flowershow icon in the ribbon.
-
-4. Click on "Sync all" to fully synchronize your site's content with your vault.
-
-Done! Your notes are ready to be shared with the world! 💐
-
-You can now start adding links as you usually would in Obsidian, with double square brackets like this: [[Some Other Note]]. You can also link to a specific header by using the syntax [[Some Other Note#A Header]].
+**Done! Your notes are now ready to be shared with the world! 💐**
 
 ### Publication Status Panel
 
