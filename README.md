@@ -1,6 +1,6 @@
 # 🌷 Obsidian Flowershow Plugin
 
-> ⚠️ **IMPORTANT**: This plugin is no longer compatible with self-hosted Flowershow sites. It is now exclusively used as a tool for Flowershow Cloud. [Sign up for Flowershow Cloud here](https://cloud.flowershow.app)
+> ⚠️ **IMPORTANT**: This plugin is no longer compatible with self-hosted Flowershow sites. It is now exclusively used as a tool for Flowershow Cloud. [Sign up for early access here](https://flowershow.app)
 
 Obsidian Flowershow plugin for publishing with [Flowershow](https://flowershow.app) direct from your Obsidian vault.
 
