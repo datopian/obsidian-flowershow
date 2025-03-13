@@ -18,6 +18,24 @@ jobs:
         with:
           node-version: "18.x"
 
+      - name: Check versions match
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          pkg_version=$(node -p "require('./package.json').version")
+          manifest_version=$(node -p "require('./manifest.json').version")
+          
+          if [ "$tag" != "$pkg_version" ]; then
+            echo "Error: Git tag ($tag) does not match version in package.json ($pkg_version)"
+            exit 1
+          fi
+          
+          if [ "$tag" != "$manifest_version" ]; then
+            echo "Error: Git tag ($tag) does not match version in manifest.json ($manifest_version)"
+            exit 1
+          fi
+          
+          echo "Versions match: $tag"
+
       - name: Build
         id: build
         run: |
