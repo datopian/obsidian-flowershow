@@ -41,13 +41,17 @@ export default class Publisher implements IPublisher {
         const markdown = await this.prepareMarkdown(file);
         const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
+				console.log("notesRepoPath, assetsRepoPath", this.notesRepoPath, this.assetsRepoPath);
+
         await this.uploadMarkdown(markdown, file.path);
         await this.uploadAssets(assets);
     }
 
     async unpublishNote(notePath: string) {
-			  console.log(`Unpublishing note ${this.notesRepoPath+notePath}`);
-        await this.deleteMarkdown(this.notesRepoPath+notePath);
+			const path = `${this.notesRepoPath}/${notePath}`
+
+			console.log(`Unpublishing note ${path}`);
+        await this.deleteMarkdown(path);
         // TODO
         // await this.deleteAssets(notePath);
     }
@@ -80,20 +84,22 @@ export default class Publisher implements IPublisher {
 
     private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
-				console.log(`Uploading ${this.notesRepoPath+filePath}`);
-        await this.uploadToGithub(this.notesRepoPath+filePath, content)
+  			const path = `${this.notesRepoPath}/${filePath}`
+  			console.log(`Uploading ${path}`);
+	  		await this.uploadToGithub(path, content)
     }
 
     private async deleteMarkdown(filePath: string) {
-				console.log(`Deleting ${this.notesRepoPath+filePath}`);
-        await this.deleteFromGithub(this.notesRepoPath+filePath)
+			const path = `${this.notesRepoPath}/${filePath}`
+			console.log(`Deleting ${path}`);
+			await this.deleteFromGithub(path)
     }
 
     private async uploadAssets(assets: { images: Array<{ path: string, content: string }> }) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
-						console.log(`Uploading asset: ${this.assetsRepoPath+image.path}`);
-            await this.uploadImage(this.assetsRepoPath+image.path, image.content);
+						console.log(`Uploading asset: ${image.path}`);
+            await this.uploadImage(image.path, image.content);
         }
     }
 
@@ -106,13 +112,15 @@ export default class Publisher implements IPublisher {
     }
 
     private async uploadImage(filePath: string, content: string) {
-      console.log(`uploading image ${this.assetsRepoPath+filePath}`);
-			await this.uploadToGithub(this.assetsRepoPath+filePath, content)
+			const publicPath = `${this.assetsRepoPath}/${filePath}`
+			console.log(`uploading image ${publicPath}`);
+			await this.uploadToGithub(publicPath, content)
     }
 
     private async deleteImage(filePath: string) {
-			console.log(`deleting image ${this.assetsRepoPath+filePath}`);
-			return await this.deleteFromGithub(filePath);
+			const path = `${this.assetsRepoPath}/${filePath}`
+			console.log(`deleting image ${path}`);
+			return await this.deleteFromGithub(path);
     }
 
     private async uploadToGithub(path: string, content: string) {

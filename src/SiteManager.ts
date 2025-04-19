@@ -42,10 +42,11 @@ export default class SiteManager implements ISiteManager {
 
         const files = response.data.tree;
         const notes: Array<{ path: string, sha: string }> = files.filter(
-            (file: { path: string; type: string; }) => file.type === "blob" && file.path.endsWith(".md"));
+            (file: { path: string; type: string; }) => file.path.startsWith(this.settings.notesRepoPath+"/") && file.type === "blob" && file.path.endsWith(".md"));
 
         const hashes: PathToHashDict = notes.reduce((dict: PathToHashDict, note) => {
-            dict[note.path] = note.sha;
+					  const vaultPath = note.path.replace(this.settings.notesRepoPath+"/", "");
+					  dict[vaultPath] = note.sha;
             return dict
         }, {});
 
@@ -65,11 +66,13 @@ export default class SiteManager implements ISiteManager {
         const files = response.data.tree;
         const images: Array<{ path: string, sha: string }> = files.filter(
             (file: { path: string; type: string; }) =>
+  							file.path.startsWith(this.settings.assetsRepoPath+"/") &&
                 file.type === "blob" &&
                 /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(file.path));
 
         const hashes: PathToHashDict = images.reduce((dict: PathToHashDict, img) => {
-            dict[decodeURI(img.path)] = img.sha;
+					  const vaultPath = decodeURI(img.path.replace(this.settings.assetsRepoPath+"/", "")); // TODO why do we need to decodeURI for images?
+					  dict[vaultPath] = img.sha;
             return dict
         }, {});
 

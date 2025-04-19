@@ -122,9 +122,9 @@ export default class SettingView {
 			.setDesc('Your path to assets')
 			.addText(text => text
 				.setPlaceholder('public/')
-				.setValue(this.settings.notesRepoPath)
+				.setValue(this.settings.assetsRepoPath)
 				.onChange(async (value) => {
-					this.settings.notesRepoPath = value;
+					this.settings.assetsRepoPath = value;
 					await this.saveSettings();
 				}));
 
