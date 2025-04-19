@@ -41,8 +41,6 @@ export default class Publisher implements IPublisher {
         const markdown = await this.prepareMarkdown(file);
         const assets = await this.prepareAssociatedAssets(markdown, file.path);
 
-				console.log("notesRepoPath, assetsRepoPath", this.notesRepoPath, this.assetsRepoPath);
-
         await this.uploadMarkdown(markdown, file.path);
         await this.uploadAssets(assets);
     }
