@@ -48,7 +48,7 @@ export default class Publisher implements IPublisher {
     }
 
     async unpublishNote(notePath: string) {
-			const path = `${this.notesRepoPath}${notePath}`
+			const path = `${this.notesRepoPath}/${notePath}`
 
 			console.log(`Unpublishing note ${path}`);
         await this.deleteMarkdown(path);
@@ -84,13 +84,13 @@ export default class Publisher implements IPublisher {
 
     private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
-  			const path = `${this.notesRepoPath}${filePath}`
+  			const path = `${this.notesRepoPath}/${filePath}`
   			console.log(`Uploading ${path}`);
 	  		await this.uploadToGithub(path, content)
     }
 
     private async deleteMarkdown(filePath: string) {
-			const path = `${this.notesRepoPath}${filePath}`
+			const path = `${this.notesRepoPath}/${filePath}`
 			console.log(`Deleting ${path}`);
 			await this.deleteFromGithub(path)
     }
