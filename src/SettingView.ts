@@ -28,7 +28,11 @@ export default class SettingView {
         this.initializeGitHubUserNameSetting();
         this.initializeGitHubRepoSetting();
         this.initializeGitHubTokenSetting();
-    }
+		  	this.settingsRootElement.createEl('h3', { text: 'GitHub path' });
+				this.initializeGitHubNotesPath();
+				this.initializeGitHubAssetsPath();
+
+		}
 
     private async saveSiteSettingsAndUpdateEnv(metadataCache: MetadataCache, settings: FlowershowSettings, saveSettings: () => Promise<void>) {
         // const octokit = new Octokit({ auth: settings.githubToken });
@@ -97,4 +101,33 @@ export default class SettingView {
                 }));
 
     }
+
+		private initializeGitHubNotesPath() {
+			new Setting(this.settingsRootElement)
+				.setName('Git Notes Path')
+				.setDesc('Your path to notes')
+				.addText(text => text
+					.setPlaceholder('content/')
+					.setValue(this.settings.notesRepoPath)
+					.onChange(async (value) => {
+						this.settings.notesRepoPath = value;
+						await this.saveSettings();
+					}));
+
+		}
+
+	private initializeGitHubAssetsPath() {
+		new Setting(this.settingsRootElement)
+			.setName('Git Assets Path')
+			.setDesc('Your path to assets')
+			.addText(text => text
+				.setPlaceholder('public/')
+				.setValue(this.settings.notesRepoPath)
+				.onChange(async (value) => {
+					this.settings.notesRepoPath = value;
+					await this.saveSettings();
+				}));
+
+	}
+
 }

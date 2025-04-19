@@ -30,6 +30,8 @@ export default class Publisher implements IPublisher {
         this.vault = vault;
         this.metadataCache = metadataCache;
         this.settings = settings;
+				this.notesRepoPath = settings.notesRepoPath;
+				this.assetsRepoPath = settings.assetsRepoPath;
     }
 
     async publishNote(file: TFile) {
@@ -44,7 +46,8 @@ export default class Publisher implements IPublisher {
     }
 
     async unpublishNote(notePath: string) {
-        await this.deleteMarkdown(notePath);
+			  console.log(`Unpublishing note ${this.notesRepoPath+notePath}`);
+        await this.deleteMarkdown(this.notesRepoPath+notePath);
         // TODO
         // await this.deleteAssets(notePath);
     }
@@ -77,33 +80,39 @@ export default class Publisher implements IPublisher {
 
     private async uploadMarkdown(content: string, filePath: string) {
         content = Base64.encode(content);
-        await this.uploadToGithub(filePath, content)
+				console.log(`Uploading ${this.notesRepoPath+filePath}`);
+        await this.uploadToGithub(this.notesRepoPath+filePath, content)
     }
 
     private async deleteMarkdown(filePath: string) {
-        await this.deleteFromGithub(filePath)
+				console.log(`Deleting ${this.notesRepoPath+filePath}`);
+        await this.deleteFromGithub(this.notesRepoPath+filePath)
     }
 
     private async uploadAssets(assets: { images: Array<{ path: string, content: string }> }) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
-            await this.uploadImage(image.path, image.content);
+						console.log(`Uploading asset: ${this.assetsRepoPath+image.path}`);
+            await this.uploadImage(this.assetsRepoPath+image.path, image.content);
         }
     }
 
     private async deleteAssets(assets: { images: Array<{ path: string }> }) {
         for (let idx = 0; idx < assets.images.length; idx++) {
             const image = assets.images[idx];
-            await this.deleteImage(image.path);
+						console.log(`Deleted asset: ${this.assetsRepoPath+image.path}`);
+            await this.deleteImage(this.assetsRepoPath+image.path);
         }
     }
 
     private async uploadImage(filePath: string, content: string) {
-        await this.uploadToGithub(filePath, content)
+      console.log(`uploading image ${this.assetsRepoPath+filePath}`);
+			await this.uploadToGithub(this.assetsRepoPath+filePath, content)
     }
 
     private async deleteImage(filePath: string) {
-        return await this.deleteFromGithub(filePath);
+			console.log(`deleting image ${this.assetsRepoPath+filePath}`);
+			return await this.deleteFromGithub(filePath);
     }
 
     private async uploadToGithub(path: string, content: string) {
