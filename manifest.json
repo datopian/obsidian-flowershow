@@ -1,7 +1,7 @@
 {
     "id": "flowershow-old",
     "name": "Flowershow-old",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "minAppVersion": "0.0.4",
     "description": "Publish with Flowershow directly from your Obsidian vault.",
     "author": "Rufus Pollock",
