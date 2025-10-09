@@ -9,7 +9,8 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "importHelpers": true,
-    "esModuleInterop": true,
+    "isolatedModules": true,
+    "strictNullChecks": true,
     "lib": [
       "DOM",
       "ES5",
