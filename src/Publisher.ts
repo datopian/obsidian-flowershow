@@ -1,145 +1,182 @@
-import { MetadataCache, TFile, Vault, getLinkpath } from "obsidian";
-import { FlowershowSettings } from "./FlowershowSettings";
-import { Base64 } from "js-base64";
-import { Octokit } from "@octokit/core";
-import { arrayBufferToBase64 } from "./utils";
+import { App, TFile } from "obsidian";
+import { IFlowershowSettings } from "./settings";
+import { Octokit } from "@octokit/rest";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
-
-
-export interface MarkedForPublishing {
-    notes: TFile[],
-    assets: string[]
-}
+import { FlowershowError } from "./utils";
 
 export interface IPublisher {
     publishNote(file: TFile): Promise<void>;
-    unpublishNote(path: string): Promise<void>;
-    prepareMarkdown(file: TFile): Promise<string>;
-    getFilesMarkedForPublishing(): Promise<MarkedForPublishing>;
+    unpublishNote(notePath: string): Promise<void>;
+    testConnection(): Promise<{ success: boolean; message: string }>;
 }
 
 export default class Publisher implements IPublisher {
-    private vault: Vault;
-    private metadataCache: MetadataCache;
-    private settings: FlowershowSettings;
+    private app: App;
+    private settings: IFlowershowSettings;
+    private octokit: Octokit;
 
-    private notesRepoPath = "";
-    private assetsRepoPath = "";
-
-    constructor(vault: Vault, metadataCache: MetadataCache, settings: FlowershowSettings) {
-        this.vault = vault;
-        this.metadataCache = metadataCache;
+    constructor(app: App, settings: IFlowershowSettings) {
+        this.app = app;
         this.settings = settings;
+        this.octokit = new Octokit({ auth: this.settings.githubToken });
+    }
+
+    async testConnection(): Promise<{ success: boolean; message: string }> {
+        if (!validateSettings(this.settings)) {
+            return {
+                success: false,
+                message: "Please fill in all GitHub settings (username, repository, and token)"
+            };
+        }
+
+        try {
+            const octokit = new Octokit({ auth: this.settings.githubToken });
+            
+            // Test repository access
+            await octokit.request('GET /repos/{owner}/{repo}', {
+                owner: this.settings.githubUserName,
+                repo: this.settings.githubRepo
+            });
+
+            // Test write permission by attempting to get repository contents
+            await octokit.request('GET /repos/{owner}/{repo}/contents', {
+                owner: this.settings.githubUserName,
+                repo: this.settings.githubRepo
+            });
+
+            // Test branch existence
+            try {
+                await octokit.request('GET /repos/{owner}/{repo}/branches/{branch}', {
+                    owner: this.settings.githubUserName,
+                    repo: this.settings.githubRepo,
+                    branch: this.settings.branch
+                });
+            } catch (branchError: any) {
+                if (branchError.status === 404) {
+                    return {
+                        success: false,
+                        message: `Branch '${this.settings.branch}' not found in repository. Please check the branch name.`
+                    };
+                }
+                throw branchError;
+            }
+
+            return {
+                success: true,
+                message: `Successfully connected to repository with write access on branch '${this.settings.branch}'`
+            };
+        } catch (error: any) {
+            if (error.status === 404) {
+                return {
+                    success: false,
+                    message: "Repository not found. Please check the repository name and your access permissions."
+                };
+            } else if (error.status === 401) {
+                return {
+                    success: false,
+                    message: "Authentication failed. Please check your GitHub token."
+                };
+            } else if (error.status === 403) {
+                return {
+                    success: false,
+                    message: "Access denied. Please check your repository permissions."
+                };
+            }
+            return {
+                success: false,
+                message: `Connection failed: ${error.message}`
+            };
+        }
     }
 
     async publishNote(file: TFile) {
-        if (!validatePublishFrontmatter(this.metadataCache.getCache(file.path).frontmatter)) {
-            throw {}
-        }
-        const markdown = await this.prepareMarkdown(file);
-        const assets = await this.prepareAssociatedAssets(markdown, file.path);
+      const cachedFile = this.app.metadataCache.getCache(file.path)
+      if (!cachedFile) {
+        throw new FlowershowError(`Note file ${file.path} not found!`)
+      }
 
-        await this.uploadMarkdown(markdown, file.path);
-        await this.uploadAssets(assets);
+      const frontmatter = cachedFile.frontmatter
+
+      if (frontmatter && !validatePublishFrontmatter(frontmatter)) {
+          throw new FlowershowError("Can't publish note with `publish: false`")
+      }
+
+      // Publish file and its embeds
+      const markdown = await this.app.vault.read(file);
+      await this.uploadToGithub(file.path, Buffer.from(markdown).toString('base64'))
+
+      const embedPromises = cachedFile.embeds?.map(async (embed) => {
+        const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown)
+        if (!embedTFile) return null;
+        let embedBase64: string;
+        if (embedTFile.extension !== "md") {
+          const embedBinary = await this.app.vault.readBinary(embedTFile);
+          embedBase64 = Buffer.from(embedBinary).toString('base64');
+        } else {
+          // Note transclusions are not supported yet, but let's at least publish them
+          // Flowershow then displays them as regular links
+          const embedMarkdown = await this.app.vault.read(embedTFile);
+          embedBase64 = Buffer.from(embedMarkdown).toString('base64');
+        }
+        await this.uploadToGithub(embedTFile.path, embedBase64)
+      })
+
+      if (embedPromises) {
+        await Promise.all(embedPromises)
+      }
     }
 
     async unpublishNote(notePath: string) {
-        await this.deleteMarkdown(notePath);
-        // TODO
-        // await this.deleteAssets(notePath);
+        await this.deleteFromGithub(notePath);
+        // TODO what about embeds that are not used elsewhere?
     }
 
-    async prepareMarkdown(file: TFile): Promise<string> {
-        return await this.vault.read(file);
+    private normalizePath(p: string): string {
+      // Avoid leading slashes which GitHub treats oddly for content paths
+      return p.replace(/^\/+/, "");
     }
 
-    async getFilesMarkedForPublishing(): Promise<MarkedForPublishing> {
-        const files = this.vault.getMarkdownFiles();
-        const notesToPublish = [];
-        const assetsToPublish: Set<string> = new Set();
-
-        for (const file of files) {
-            const frontMatter = this.metadataCache.getCache(file.path).frontmatter
-            if (!frontMatter || frontMatter["publish"] !== false) {
-                notesToPublish.push(file);
-                const text = await this.vault.read(file);
-                const images = await this.extractEmbeddedImageFiles(text, file.path);
-                Object.keys(images).forEach((i) => assetsToPublish.add(i));
-                // ... other assets?
-            }
-        }
-
-        return {
-            notes: notesToPublish,
-            assets: Array.from(assetsToPublish)
-        };
+    private async getFileSha(owner: string, repo: string, path: string): Promise<string | null> {
+      const octo = this.octokit;
+      try {
+        const res = await octo.rest.repos.getContent({ owner, repo, path: this.normalizePath(path), ref: this.settings.branch })
+        // If it's a file, return its sha; if directory/array, treat as missing for single-file ops
+        return Array.isArray(res.data) ? null : (res.data.type === "file" ? res.data.sha ?? null : null);
+      } catch (e: any) {
+        if (e?.status === 404) return null;
+        throw e;
+      }
     }
 
-    private async uploadMarkdown(content: string, filePath: string) {
-        content = Base64.encode(content);
-        await this.uploadToGithub(filePath, content)
-    }
-
-    private async deleteMarkdown(filePath: string) {
-        await this.deleteFromGithub(filePath)
-    }
-
-    private async uploadAssets(assets: { images: Array<{ path: string, content: string }> }) {
-        for (let idx = 0; idx < assets.images.length; idx++) {
-            const image = assets.images[idx];
-            await this.uploadImage(image.path, image.content);
-        }
-    }
-
-    private async deleteAssets(assets: { images: Array<{ path: string }> }) {
-        for (let idx = 0; idx < assets.images.length; idx++) {
-            const image = assets.images[idx];
-            await this.deleteImage(image.path);
-        }
-    }
-
-    private async uploadImage(filePath: string, content: string) {
-        await this.uploadToGithub(filePath, content)
-    }
-
-    private async deleteImage(filePath: string) {
-        return await this.deleteFromGithub(filePath);
-    }
-
+    // content is base64 string
     private async uploadToGithub(path: string, content: string) {
-        if (!validateSettings(this.settings)) {
-            throw {}
-        }
+      if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
 
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Add content ${path}`,
-            content,
-            sha: ''
-        };
+      const owner = this.settings.githubUserName;
+      const repo = this.settings.githubRepo;
+      const branch = this.settings.branch?.trim() || 'main';
+      const filePath = this.normalizePath(path);
+      const octo = this.octokit;
+      const committer = {
+          name: this.settings.githubUserName,
+          email: `${this.settings.githubUserName}@users.noreply.github.com`
+      };
 
-        try {
-            const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                path
-            });
-            
-            // Handle both single file and directory responses
-            const fileData = Array.isArray(response.data) ? null : response.data;
-            
-            if (response.status === 200 && fileData?.type === "file") {
-                payload.message = `Update content ${path}`;
-                payload.sha = fileData.sha;
-            }
+      // Try "create or update" in one call by passing sha when it exists
+      const sha = await this.getFileSha(owner, repo, filePath);
+      const message = `${sha ? "Update" : "Add"} content ${filePath}`;
 
-        } catch {
-            // don't fail, file just doesn't exist in the repo yet
-        }
-        await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', payload);
+      octo.rest.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path: filePath,
+        message,
+        content,
+        sha: sha ?? undefined,
+        branch,
+        committer,
+        author: committer
+      })
     }
 
     private async deleteFromGithub(path: string) {
@@ -170,83 +207,5 @@ export default class Publisher implements IPublisher {
         }
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
-    }
-
-    private async prepareAssociatedAssets(text: string, filePath: string) {
-        const assets: { images: Array<{ path: string, content: string }> } = {
-            images: [],
-            // ... other assets
-        };
-
-        const imagePathsToTFilesMap = await this.extractEmbeddedImageFiles(text, filePath);
-
-        for (const path in imagePathsToTFilesMap) {
-            const image = imagePathsToTFilesMap[path];
-            assets.images.push({
-                path,
-                content: await this.readImageToBase64(image)
-            });
-
-        }
-        return assets;
-    }
-
-    private async readImageToBase64(file: TFile): Promise<string> {
-        const image = await this.vault.readBinary(file);
-        const imageBase64 = arrayBufferToBase64(image)
-        return imageBase64;
-    }
-
-    private async extractEmbeddedImageFiles(text: string, filePath: string): Promise<{ [path: string]: TFile }> {
-        const embeddedImageFiles: { [path: string]: TFile } = {};
-
-        //![[image.png]]
-        const embeddedImageRegex = /!\[\[(.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))(?:\|(.*?))?\]\]/g;
-        const embeddedImageMatches = [...text.matchAll(embeddedImageRegex)];
-
-        if (embeddedImageMatches) {
-            for (let i = 0; i < embeddedImageMatches.length; i++) {
-                try {
-                    // `path` below can be a full path or Obsidian-style shortened path, i.e. just a file name with extension
-                    // const [, path, extension, size = null] = embeddedImageMatches[i];
-                    const [, path] = embeddedImageMatches[i];
-                    const imagePath = getLinkpath(path);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-
-                    if (!embeddedImageFiles[linkedFile.path]) {
-                        embeddedImageFiles[linkedFile.path] = linkedFile;
-                    }
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        const imageRegex = /!\[.*?\]\((.*?\.(png|webp|jpg|jpeg|gif|bmp|svg))\)/g;
-        const imageMatches = [...text.matchAll(imageRegex)];
-
-        if (imageMatches) {
-            for (let i = 0; i < imageMatches.length; i++) {
-                try {
-                    // const [, path, extension] = imageMatches[i];
-                    const [, path] = imageMatches[i];
-
-                    if (path.startsWith("http")) {
-                        continue;
-                    }
-
-                    // const decodedImagePath = decodeURI(imagePath);
-                    const imagePath = getLinkpath(path);
-                    const linkedFile = this.metadataCache.getFirstLinkpathDest(imagePath, filePath);
-                    if (!embeddedImageFiles[linkedFile.path]) {
-                        embeddedImageFiles[linkedFile.path] = linkedFile;
-                    }
-                } catch {
-                    continue;
-                }
-            }
-        }
-
-        return embeddedImageFiles;
     }
 }

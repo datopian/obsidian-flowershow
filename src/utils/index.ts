@@ -1,17 +1,6 @@
-import { Base64 } from "js-base64";
 import slugify from "@sindresorhus/slugify";
-import sha1 from "crypto-js/sha1";
 import { MetadataCache } from "obsidian";
-
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-	let binary = "";
-	const bytes = new Uint8Array(buffer);
-	const len = bytes.byteLength;
-	for (let i = 0; i < len; i++) {
-		binary += String.fromCharCode(bytes[i]);
-	}
-	return Base64.btoa(binary);
-}
+import {createHash} from "crypto"
 
 // DONE
 function extractBaseUrl(url: string) {
@@ -36,7 +25,9 @@ function generateBlobHash(content: string) {
 	const header = `blob ${byteLength}\0`;
 	const gitBlob = header + content;
 
-	return sha1(gitBlob).toString();
+  const generator = createHash('sha1');
+  generator.update(gitBlob)  
+	return generator.digest("hex") // or base64?
 }
 
 function kebabize(str: string) {
@@ -87,5 +78,23 @@ function getVaultPathForNote(gardenPath: string, rules: Array<Array<string>>, me
 	return gardenPath;
 }
 
+class FlowershowError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FlowershowError";
+  }
+}
 
-export { arrayBufferToBase64, extractBaseUrl, generateUrlPath, generateBlobHash, kebabize, wrapAround, getRewriteRules, getVaultPathForNote, getGardenPathForNote, escapeRegExp };
+
+export {
+  extractBaseUrl,
+  generateUrlPath,
+  generateBlobHash,
+  kebabize,
+  wrapAround,
+  getRewriteRules,
+  getVaultPathForNote,
+  getGardenPathForNote,
+  escapeRegExp,
+  FlowershowError
+};
