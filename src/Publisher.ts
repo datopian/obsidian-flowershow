@@ -18,76 +18,71 @@ export default class Publisher implements IPublisher {
     constructor(app: App, settings: IFlowershowSettings) {
         this.app = app;
         this.settings = settings;
-        this.octokit = new Octokit({ auth: this.settings.githubToken });
+        this.octokit = new Octokit({
+          auth: this.settings.githubToken,
+          request: {
+            // Force fresh network fetches
+            fetch: (url: any, options: any) =>
+              fetch(url, { ...options, cache: "no-store" }),
+            // and disable ETag conditional requests
+            // (Octokit won’t add If-None-Match if you pass an empty one)
+            // You can also set this per-call instead of globally.
+            // headers: { 'If-None-Match': '' } // optional global default
+          }
+         });
     }
 
-    async testConnection(): Promise<{ success: boolean; message: string }> {
-        if (!validateSettings(this.settings)) {
-            return {
-                success: false,
-                message: "Please fill in all GitHub settings (username, repository, and token)"
-            };
-        }
-
-        try {
-            const octokit = new Octokit({ auth: this.settings.githubToken });
-            
-            // Test repository access
-            await octokit.request('GET /repos/{owner}/{repo}', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo
-            });
-
-            // Test write permission by attempting to get repository contents
-            await octokit.request('GET /repos/{owner}/{repo}/contents', {
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo
-            });
-
-            // Test branch existence
-            try {
-                await octokit.request('GET /repos/{owner}/{repo}/branches/{branch}', {
-                    owner: this.settings.githubUserName,
-                    repo: this.settings.githubRepo,
-                    branch: this.settings.branch
-                });
-            } catch (branchError: any) {
-                if (branchError.status === 404) {
-                    return {
-                        success: false,
-                        message: `Branch '${this.settings.branch}' not found in repository. Please check the branch name.`
-                    };
-                }
-                throw branchError;
-            }
-
-            return {
-                success: true,
-                message: `Successfully connected to repository with write access on branch '${this.settings.branch}'`
-            };
-        } catch (error: any) {
-            if (error.status === 404) {
-                return {
-                    success: false,
-                    message: "Repository not found. Please check the repository name and your access permissions."
-                };
-            } else if (error.status === 401) {
-                return {
-                    success: false,
-                    message: "Authentication failed. Please check your GitHub token."
-                };
-            } else if (error.status === 403) {
-                return {
-                    success: false,
-                    message: "Access denied. Please check your repository permissions."
-                };
-            }
-            return {
-                success: false,
-                message: `Connection failed: ${error.message}`
-            };
-        }
+  /** ---------- Public API ---------- */
+  async testConnection(): Promise<{ success: boolean; message: string }> {
+    if (!validateSettings(this.settings)) {
+      return {
+        success: false,
+        message: "Please fill in all GitHub settings (username, repository, token, branch).",
+      };
     }
+
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+    const branch = this.settings.branch?.trim() || "main";
+
+    try {
+      // Repo exists & we can read it
+      const { data: repoData } = await this.octokit.repos.get({ owner, repo });
+
+      // Check push permission
+      const canPush =
+        repoData.permissions?.push ||
+        repoData.permissions?.admin ||
+        repoData.permissions?.maintain;
+      if (!canPush) {
+        return {
+          success: false,
+          message: "Connected, but you don't have write access to this repository.",
+        };
+      }
+
+      // Branch exists
+      await this.octokit.repos.getBranch({ owner, repo, branch });
+
+      return {
+        success: true,
+        message: `Connected. Repo "${owner}/${repo}" and branch "${branch}" are accessible with write permission.`,
+      };
+    } catch (error: any) {
+      const status = error?.status;
+      if (status === 404)
+        return { success: false, message: "Repository or branch not found." };
+      if (status === 401)
+        return { success: false, message: "Authentication failed. Check your token." };
+      if (status === 403)
+        return {
+          success: false,
+          message:
+            "Access denied (403). Check repository permissions or token scopes (need 'repo').",
+        };
+      return { success: false, message: `Connection failed: ${error?.message ?? error}` };
+    }
+  }
 
     async publishNote(file: TFile) {
       const cachedFile = this.app.metadataCache.getCache(file.path)
@@ -105,9 +100,21 @@ export default class Publisher implements IPublisher {
       const markdown = await this.app.vault.read(file);
       await this.uploadToGithub(file.path, Buffer.from(markdown).toString('base64'))
 
-      const embedPromises = cachedFile.embeds?.map(async (embed) => {
-        const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown)
-        if (!embedTFile) return null;
+      // Track unique embeds for this publish run
+      const uniqueEmbeds = new Map<string, TFile>();
+      
+      // First collect unique embeds
+      cachedFile.embeds?.forEach(embed => {
+        const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown);
+        if (embedTFile && !uniqueEmbeds.has(embedTFile.path)) {
+          uniqueEmbeds.set(embedTFile.path, embedTFile);
+        }
+      });
+
+      console.log({uniqueEmbeds})
+
+      // Then upload unique embeds
+      const embedPromises = Array.from(uniqueEmbeds.values()).map(async (embedTFile) => {
         let embedBase64: string;
         if (embedTFile.extension !== "md") {
           const embedBinary = await this.app.vault.readBinary(embedTFile);
@@ -118,11 +125,11 @@ export default class Publisher implements IPublisher {
           const embedMarkdown = await this.app.vault.read(embedTFile);
           embedBase64 = Buffer.from(embedMarkdown).toString('base64');
         }
-        await this.uploadToGithub(embedTFile.path, embedBase64)
-      })
+        await this.uploadToGithub(embedTFile.path, embedBase64);
+      });
 
-      if (embedPromises) {
-        await Promise.all(embedPromises)
+      if (embedPromises.length > 0) {
+        await Promise.all(embedPromises);
       }
     }
 
@@ -139,10 +146,19 @@ export default class Publisher implements IPublisher {
     private async getFileSha(owner: string, repo: string, path: string): Promise<string | null> {
       const octo = this.octokit;
       try {
-        const res = await octo.rest.repos.getContent({ owner, repo, path: this.normalizePath(path), ref: this.settings.branch })
+        const res = await octo.rest.repos.getContent({
+          owner,
+          repo,
+          path: this.normalizePath(path),
+          ref: this.settings.branch,
+          headers: {
+            'If-None-Match': ''
+          }
+         })
         // If it's a file, return its sha; if directory/array, treat as missing for single-file ops
         return Array.isArray(res.data) ? null : (res.data.type === "file" ? res.data.sha ?? null : null);
       } catch (e: any) {
+        console.log(e)
         if (e?.status === 404) return null;
         throw e;
       }
@@ -150,6 +166,7 @@ export default class Publisher implements IPublisher {
 
     // content is base64 string
     private async uploadToGithub(path: string, content: string) {
+      console.log(`Uploading ${path}`)
       if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
 
       const owner = this.settings.githubUserName;
@@ -162,21 +179,31 @@ export default class Publisher implements IPublisher {
           email: `${this.settings.githubUserName}@users.noreply.github.com`
       };
 
-      // Try "create or update" in one call by passing sha when it exists
-      const sha = await this.getFileSha(owner, repo, filePath);
-      const message = `${sha ? "Update" : "Add"} content ${filePath}`;
+      const createOrUpdate = async () => {
+        const sha = await this.getFileSha(owner, repo, filePath);
+        const message = `${sha ? "Update" : "Add"} content ${filePath}`;
 
-      octo.rest.repos.createOrUpdateFileContents({
-        owner,
-        repo,
-        path: filePath,
-        message,
-        content,
-        sha: sha ?? undefined,
-        branch,
-        committer,
-        author: committer
-      })
+        await octo.rest.repos.createOrUpdateFileContents({
+          owner,
+          repo,
+          path: filePath,
+          message,
+          content,
+          sha: sha ?? undefined,
+          branch,
+          committer,
+          author: committer,
+          headers: {
+            'If-None-Match': ''
+          }
+        })
+      }
+
+      try {
+        await createOrUpdate()
+      } catch (e) {
+        await new Promise(r => setTimeout(createOrUpdate, 1000));
+      }
     }
 
     private async deleteFromGithub(path: string) {
