@@ -3,6 +3,8 @@ export const DEFAULT_SETTINGS: IFlowershowSettings = {
 	githubToken: '',
 	githubUserName: '',
 	branch: 'main',
+	autoMergePullRequests: false,
+	mergeCommitMessage: 'Merge content updates',
 }
 
 export interface IFlowershowSettings {
@@ -10,4 +12,6 @@ export interface IFlowershowSettings {
 	githubRepo: string;
 	githubUserName: string;
 	branch: string;
+	autoMergePullRequests: boolean;
+	mergeCommitMessage: string;
 }

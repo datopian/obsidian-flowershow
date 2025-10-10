@@ -1,31 +1,17 @@
 // DONE
 export default class PublishStatusBar {
+    statusBarItem: HTMLElement;
+    status: HTMLElement;
+
     publishCounter: number;
     publishTotal: number;
     deleteCounter: number;
     deleteTotal: number;
 
-    statusBarItem: HTMLElement;
-    status: HTMLElement;
-
-    constructor({
-      statusBarItem,
-      filesToPublishCount,
-      filesToDeleteCount
-    }:{
-      statusBarItem: HTMLElement,
-      filesToPublishCount: number,
-      filesToDeleteCount: number,
-    }) {
+    constructor(statusBarItem: HTMLElement) {
       this.statusBarItem = statusBarItem;
       this.publishCounter = 0;
-      this.publishTotal = filesToPublishCount;
       this.deleteCounter = 0;
-      this.deleteTotal = filesToDeleteCount;
-
-      this.statusBarItem.createEl("span", { text: "💐: " });
-      this.status = this.statusBarItem.createEl("span");
-      this.updateStatus();
     }
 
     incrementPublish() {
@@ -55,6 +41,20 @@ export default class PublishStatusBar {
         }
     }
 
+    start({
+      publishTotal = 0,
+      deleteTotal = 0
+    }: {
+      publishTotal?: number,
+      deleteTotal?: number
+    }) { 
+      if (!publishTotal && !deleteTotal) return;
+      this.publishTotal = publishTotal;
+      this.deleteTotal = deleteTotal;
+      this.status = this.statusBarItem.createEl("span", { text: "💐: " });
+      this.updateStatus();
+    }
+
     finish(displayDurationMillisec: number) {
         const publishStatus = this.publishTotal > 0
             ? `Published: ${this.publishCounter}/${this.publishTotal}`
@@ -72,11 +72,11 @@ export default class PublishStatusBar {
         }
 
         setTimeout(() => {
-            this.statusBarItem.remove();
+            this.status.remove();
         }, displayDurationMillisec);
     }
 
     error() {
-        this.statusBarItem.remove();
+        this.status.remove();
     }
 }

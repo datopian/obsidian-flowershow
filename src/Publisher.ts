@@ -1,16 +1,9 @@
-import { App, TFile } from "obsidian";
+import { App, Notice, TFile } from "obsidian";
 import { IFlowershowSettings } from "./settings";
 import { Octokit } from "@octokit/rest";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
 import { FlowershowError } from "./utils";
-
-export interface IPublisher {
-    publishFile(file: TFile): Promise<void>;
-    publishNote(file: TFile, withEmbeds: boolean): Promise<void>;
-    unpublishFile(notePath: string): Promise<void>;
-    testConnection(): Promise<{ success: boolean; message: string }>;
-    getPublishStatus(): Promise<PublishStatus>
-}
+import PublishStatusBar from "./PublishStatusBar";
 
 export interface PublishStatus {
     unchangedFiles: Array<TFile>;
@@ -21,14 +14,16 @@ export interface PublishStatus {
 
 export type PathToHashDict = { [key: string]: string };
 
-export default class Publisher implements IPublisher {
+export default class Publisher {
     private app: App;
     private settings: IFlowershowSettings;
+    private publishStatusBar: PublishStatusBar; 
     private octokit: Octokit;
 
-    constructor(app: App, settings: IFlowershowSettings) {
+    constructor(app: App, settings: IFlowershowSettings, publishStatusBar: PublishStatusBar) {
         this.app = app;
         this.settings = settings;
+        this.publishStatusBar = publishStatusBar;
         this.octokit = new Octokit({
           auth: this.settings.githubToken,
           request: {
@@ -269,111 +264,346 @@ export default class Publisher implements IPublisher {
       }
     }
 
-    // content is base64 string
-    private async uploadToGithub(path: string, content: string) {
-      console.log(`Uploading ${path}`)
-      if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
+  /**
+   * Publish/delete multiple files on a new branch, commit each change separately,
+   * open a PR, and optionally auto-merge.
+   */
+  async publishBatch(opts: {
+    filesToPublish?: TFile[];
+    filesToDelete?: string[];
+    branchNameHint?: string; // optional custom branch name
+  }): Promise<{ branch: string; prNumber: number; prUrl: string; merged: boolean }> {
+    if (!validateSettings(this.settings)) {
+      throw new FlowershowError("Invalid Flowershow GitHub settings");
+    }
 
-      const owner = this.settings.githubUserName;
-      const repo = this.settings.githubRepo;
-      const branch = this.settings.branch?.trim() || 'main';
-      const filePath = this.normalizePath(path);
-      const octo = this.octokit;
+    if (!opts.filesToDelete?.length && !opts.filesToDelete?.length) {
+      throw new FlowershowError("No files to delete or publish provided")
+    }
+
+    this.publishStatusBar.start({
+      publishTotal: opts.filesToPublish?.length,
+      deleteTotal: opts.filesToDelete?.length
+    })
+
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+    const baseBranch = (this.settings.branch?.trim() || "main");
+    const workBranch = await this.createWorkingBranch(baseBranch, opts.branchNameHint);
+
+    const filesToPublish = opts.filesToPublish ?? [];
+    const filesToDelete = opts.filesToDelete ?? [];
+
+    // One commit per file: PUSH
+    for (const file of filesToPublish) {
+      let base64content: string;
+
+      if (isPlainTextExtension(file.extension)) {
+        const text = await this.app.vault.cachedRead(file);
+        base64content = Buffer.from(text).toString("base64");
+      } else {
+        const bytes = await this.app.vault.readBinary(file);
+        base64content = Buffer.from(bytes).toString("base64");
+      }
+
+      const filePath = this.normalizePath(file.path);
+      const sha = await this.getFileShaOnBranch(filePath, workBranch);
       const committer = {
-          name: this.settings.githubUserName,
-          email: `${this.settings.githubUserName}@users.noreply.github.com`
+        name: this.settings.githubUserName,
+        email: `${this.settings.githubUserName}@users.noreply.github.com`,
       };
 
-      const createOrUpdate = async () => {
-        const sha = await this.getFileSha(owner, repo, filePath);
-        console.log({sha})
-        const message = `${sha ? "Update" : "Add"} content ${filePath}`;
-        console.log({message})
-
-        await octo.rest.repos.createOrUpdateFileContents({
-          owner,
-          repo,
-          path: filePath,
-          message,
-          content,
-          sha: sha ?? undefined,
-          branch,
-          committer,
-          author: committer,
-          headers: {
-            'If-None-Match': ''
-          }
-        })
-      }
-
-      try {
-        await createOrUpdate()
-      } catch (e) {
-        await new Promise(r => setTimeout(createOrUpdate, 1000));
-      }
-    }
-
-    private async deleteFromGithub(path: string) {
-        if (!validateSettings(this.settings)) {
-            throw {}
-        }
-
-        const octokit = new Octokit({ auth: this.settings.githubToken });
-        const payload = {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path,
-            message: `Delete content ${path}`,
-            sha: ''
-        };
-
-        const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-            owner: this.settings.githubUserName,
-            repo: this.settings.githubRepo,
-            path
-        });
-
-        // Handle both single file and directory responses
-        const fileData = Array.isArray(response.data) ? null : response.data;
-        
-        if (response.status === 200 && fileData?.type === "file") {
-            payload.sha = fileData.sha;
-        }
-
-        await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
-    }
-
-    /** Get dictionary of path->hash of all the files in the repo */
-    async getRemoteFileHashes(): Promise<PathToHashDict> {
-      // Get the full tree at HEAD (recursive) and bypass caches
-      const { data } = await this.octokit.rest.git.getTree({
-        owner: this.settings.githubUserName,
-        repo: this.settings.githubRepo,
-        tree_sha: "HEAD",
-        recursive: "1",
-        headers: {
-          // Forces GitHub to skip ETag-based caching and return fresh data
-          "If-None-Match": ""
-        }
+      await this.octokit.rest.repos.createOrUpdateFileContents({
+        owner, repo,
+        path: filePath,
+        message: `PUSH: ${filePath}`,
+        content: base64content,
+        sha: sha ?? undefined,
+        branch: workBranch,
+        committer,
+        author: committer,
+        headers: { "If-None-Match": "" }
       });
 
-      const files = data.tree ?? [];
+      this.publishStatusBar.incrementPublish()
 
-      const notes: Array<{ path: string; sha: string }> = files
-        .filter((file)  => !!file && file.type === "blob" && typeof file.path === "string"
-        )
-        .map(({ path, sha }) => ({ path, sha }));
-
-      const hashes: PathToHashDict = notes.reduce<PathToHashDict>((dict, note) => {
-        dict[note.path] = note.sha;
-        return dict;
-      }, {});
-
-      return hashes;
     }
+
+    // One commit per file: DELETE
+    for (const path of filesToDelete) {
+      const sha = await this.getFileShaOnBranch(path, workBranch);
+      if (!sha) continue; // nothing to delete
+
+      const committer = {
+        name: this.settings.githubUserName,
+        email: `${this.settings.githubUserName}@users.noreply.github.com`,
+      };
+
+      await this.octokit.rest.repos.deleteFile({
+        owner, repo,
+        path,
+        message: `DELETE: ${path}`,
+        sha,
+        branch: workBranch,
+        committer,
+        author: committer,
+        headers: { "If-None-Match": "" }
+      });
+
+      this.publishStatusBar.incrementDelete()
+    }
+
+    // Compose PR info
+    const title = `Flowershow: ${filesToPublish.length} push(es), ${filesToDelete.length} delete(s)`;
+    const body = [
+      filesToPublish.length ? `### Pushed\n${filesToPublish.map(f => `- ${this.normalizePath(f.path)}`).join("\n")}` : "",
+      filesToDelete.length ? `### Deleted\n${filesToDelete.map(p => `- ${this.normalizePath(p)}`).join("\n")}` : ""
+    ].filter(Boolean).join("\n\n");
+
+    const { prNumber, prUrl, merged } = await this.createPRAndMaybeMerge({
+      branch: workBranch,
+      baseBranch,
+      title,
+      body
+    });
+
+    this.publishStatusBar.finish(5000)
+
+    return { branch: workBranch, prNumber, prUrl, merged };
+  }
+
+  // content is base64 string
+  private async uploadToGithub(path: string, content: string) {
+    console.log(`Uploading ${path}`)
+    if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
+
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+    const branch = this.settings.branch?.trim() || 'main';
+    const filePath = this.normalizePath(path);
+    const octo = this.octokit;
+    const committer = {
+        name: this.settings.githubUserName,
+        email: `${this.settings.githubUserName}@users.noreply.github.com`
+    };
+
+    const createOrUpdate = async () => {
+      const sha = await this.getFileSha(owner, repo, filePath);
+      console.log({sha})
+      const message = `${sha ? "Update" : "Add"} content ${filePath}`;
+      console.log({message})
+
+      await octo.rest.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path: filePath,
+        message,
+        content,
+        sha: sha ?? undefined,
+        branch,
+        committer,
+        author: committer,
+        headers: {
+          'If-None-Match': ''
+        }
+      })
+    }
+
+    try {
+      await createOrUpdate()
+    } catch (e) {
+      await new Promise(r => setTimeout(createOrUpdate, 1000));
+    }
+  }
+
+  private async deleteFromGithub(path: string) {
+      if (!validateSettings(this.settings)) {
+          throw {}
+      }
+
+      const octokit = new Octokit({ auth: this.settings.githubToken });
+      const payload = {
+          owner: this.settings.githubUserName,
+          repo: this.settings.githubRepo,
+          path,
+          message: `Delete content ${path}`,
+          sha: ''
+      };
+
+      const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+          owner: this.settings.githubUserName,
+          repo: this.settings.githubRepo,
+          path
+      });
+
+      // Handle both single file and directory responses
+      const fileData = Array.isArray(response.data) ? null : response.data;
+      
+      if (response.status === 200 && fileData?.type === "file") {
+          payload.sha = fileData.sha;
+      }
+
+      await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
+  }
+
+  /** Get dictionary of path->hash of all the files in the repo */
+  private async getRemoteFileHashes(): Promise<PathToHashDict> {
+    // Get the full tree at HEAD (recursive) and bypass caches
+    const { data } = await this.octokit.rest.git.getTree({
+      owner: this.settings.githubUserName,
+      repo: this.settings.githubRepo,
+      tree_sha: "HEAD",
+      recursive: "1",
+      headers: {
+        // Forces GitHub to skip ETag-based caching and return fresh data
+        "If-None-Match": ""
+      }
+    });
+
+    const files = data.tree ?? [];
+
+    const notes: Array<{ path: string; sha: string }> = files
+      .filter((file)  => !!file && file.type === "blob" && typeof file.path === "string"
+      )
+      .map(({ path, sha }) => ({ path, sha }));
+
+    const hashes: PathToHashDict = notes.reduce<PathToHashDict>((dict, note) => {
+      dict[note.path] = note.sha;
+      return dict;
+    }, {});
+
+    return hashes;
+  }
+
+  private async createWorkingBranch(baseBranch: string, desiredName?: string): Promise<string> {
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+    const octo = this.octokit;
+
+    // Get base ref SHA
+    const baseRef = await octo.rest.git.getRef({
+      owner, repo, ref: `heads/${baseBranch}`,
+      headers: { "If-None-Match": "" }
+    }).then(r => r.data);
+
+    // Find a unique branch name
+    const baseName = desiredName?.trim() || `flowershow/publish-${Date.now()}`;
+    let branchName = baseName;
+    let i = 1;
+    while (true) {
+      try {
+        await octo.rest.git.getRef({ owner, repo, ref: `heads/${branchName}` });
+        branchName = `${baseName}-${i++}`;
+      } catch (e: any) {
+        if (e?.status === 404) break; // unique
+        throw e;
+      }
+    }
+
+    // Create ref
+    await octo.rest.git.createRef({
+      owner, repo,
+      ref: `refs/heads/${branchName}`,
+      sha: baseRef.object.sha
+    });
+
+    return branchName;
+  }
+
+  private async getFileShaOnBranch(path: string, branch: string): Promise<string | null> {
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+    try {
+      const res = await this.octokit.rest.repos.getContent({
+        owner, repo,
+        path: this.normalizePath(path),
+        ref: branch,
+        headers: { "If-None-Match": "" }
+      });
+
+      return Array.isArray(res.data)
+        ? null
+        : (res.data.type === "file" ? (res.data.sha ?? null) : null);
+    } catch (e: any) {
+      if (e?.status === 404) return null;
+      throw e;
+    }
+  }
+
+  private async createPRAndMaybeMerge(params: {
+    branch: string;
+    baseBranch: string;
+    title: string;
+    body?: string;
+  }) {
+    const owner = this.settings.githubUserName;
+    const repo = this.settings.githubRepo;
+
+    // Create PR
+    const pr = await this.octokit.rest.pulls.create({
+      owner, repo,
+      head: params.branch,
+      base: params.baseBranch,
+      title: params.title,
+      body: params.body ?? ""
+    });
+
+    const prNumber = pr.data.number;
+    const prUrl = pr.data.html_url;
+
+    if (!this.settings.autoMergePullRequests) {
+      return { prNumber, prUrl, merged: false };
+    }
+
+    // Try immediate merge via REST
+    try {
+      const merge = await this.octokit.rest.pulls.merge({
+        owner, repo,
+        pull_number: prNumber,
+        merge_method: "squash",
+        commit_title: this.settings.mergeCommitMessage || `Merge PR #${prNumber}`
+        // commit_message (body) is optional; GitHub will compose by default for squash
+      });
+      return { prNumber, prUrl, merged: merge.data.merged === true };
+    } catch (e: any) {
+      // If it can't merge yet (checks required, etc.), we *attempt* to enable auto-merge via GraphQL.
+      // This requires the repo to have auto-merge enabled and the token to have permissions.
+      try {
+        const prNode = await this.octokit.graphql<{ repository: { pullRequest: { id: string } } }>(
+          `
+          query($owner:String!, $repo:String!, $number:Int!) {
+            repository(owner:$owner, name:$repo) {
+              pullRequest(number:$number) { id }
+            }
+          }`,
+          { owner, repo, number: prNumber }
+        );
+
+        const prId = prNode.repository.pullRequest.id;
+
+        // Enable auto-merge (SQUASH) — fallback if REST merge fails now
+        await (this.octokit as any).graphql(
+          `
+          mutation($prId:ID!, $title:String!) {
+            enablePullRequestAutoMerge(input:{
+              pullRequestId:$prId,
+              mergeMethod:SQUASH,
+              commitHeadline:$title
+            }) { clientMutationId }
+          }`,
+          { prId, title: this.settings.mergeCommitMessage || `Auto-merge PR #${prNumber}` }
+        );
+
+        return { prNumber, prUrl, merged: false }; // will merge when checks pass
+      } catch {
+        // If enabling auto-merge fails, just return PR info.
+        return { prNumber, prUrl, merged: false };
+      }
+    }
+  }
 }
 
 function isPlainTextExtension(ext: string) {
-  return ["md", "json", "mdx", "yaml", "yml"].includes(ext)
+  return ["md", "mdx", "json", "yaml", "yml", "css"].includes(ext)
 
 }

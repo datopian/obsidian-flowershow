@@ -1,16 +1,16 @@
-import { IPublisher } from './Publisher';
+import Publisher from './Publisher';
 import { IFlowershowSettings } from './settings';
 import { Notice, Setting, debounce, MetadataCache, getIcon } from 'obsidian';
 // import SiteManager from './SiteManager';
 
 export default class SettingView {
-  private publisher: IPublisher;
+  private publisher: Publisher;
   private settings: IFlowershowSettings;
   private saveSettings: () => Promise<void>;
   private settingsRootElement: HTMLElement;
   debouncedSaveAndUpdate = debounce(this.saveSiteSettingsAndUpdateEnv, 500, true);
 
-  constructor(settingsRootElement: HTMLElement, publisher: IPublisher, settings: IFlowershowSettings, saveSettings: () => Promise<void>) {
+  constructor(settingsRootElement: HTMLElement, publisher: Publisher, settings: IFlowershowSettings, saveSettings: () => Promise<void>) {
     this.publisher = publisher;
     this.settingsRootElement = settingsRootElement;
     this.settingsRootElement.classList.add("dg-settings");
@@ -34,6 +34,11 @@ export default class SettingView {
       this.initializeGitHubTokenSetting();
       this.initializeBranchSetting();
       this.initializeTestConnection();
+      
+      const publishHeader = this.settingsRootElement.createEl('h3', { text: 'Publishing Settings' });
+      this.initializeAutoMergeSetting();
+      this.initializeMergeMessageSetting();
+      
   }
 
   private async saveSiteSettingsAndUpdateEnv(metadataCache: MetadataCache, settings: IFlowershowSettings, saveSettings: () => Promise<void>) {
@@ -139,5 +144,32 @@ export default class SettingView {
                       button.setButtonText('Test Connection');
                   }
               }));
+  }
+
+  private initializeAutoMergeSetting() {
+    new Setting(this.settingsRootElement)
+      .setName('Auto-merge Pull Requests')
+      .setDesc('Automatically merge pull requests after creation')
+      .addToggle(toggle => toggle
+        .setValue(this.settings.autoMergePullRequests)
+        .onChange(async (value) => {
+          this.settings.autoMergePullRequests = value;
+          await this.saveSettings();
+        })
+      );
+  }
+
+  private initializeMergeMessageSetting() {
+    new Setting(this.settingsRootElement)
+      .setName('Merge Commit Message')
+      .setDesc('Default message for merge commits')
+      .addText(text => text
+        .setPlaceholder('Merge content updates')
+        .setValue(this.settings.mergeCommitMessage)
+        .onChange(async (value) => {
+          this.settings.mergeCommitMessage = value;
+          await this.saveSettings();
+        })
+      );
   }
 }

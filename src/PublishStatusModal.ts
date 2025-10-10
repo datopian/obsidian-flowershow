@@ -1,7 +1,8 @@
 import { App, ButtonComponent, Modal } from "obsidian";
 
 import type { IFlowershowSettings } from "./settings";
-import type { IPublisher, PublishStatus } from "./Publisher";
+import type { PublishStatus } from "./Publisher";
+import Publisher from "./Publisher";
 
 
 export interface IPublishStatusModal {
@@ -12,7 +13,7 @@ export default class PublishStatusModal implements IPublishStatusModal {
     private modal: Modal;
     private settings: IFlowershowSettings;
     private app: App;
-    private publisher: IPublisher;
+    private publisher: Publisher;
     private publishStatus: PublishStatus;
 
     private publishedList: HTMLElement;
@@ -25,7 +26,7 @@ export default class PublishStatusModal implements IPublishStatusModal {
     private unpublishedCounter: HTMLElement;
     private progressContainer: HTMLElement;
 
-    constructor(app: App, publisher: IPublisher, settings: IFlowershowSettings) {
+    constructor(app: App, publisher: Publisher, settings: IFlowershowSettings) {
         this.modal = new Modal(app);
         this.app = app;
         this.settings = settings;

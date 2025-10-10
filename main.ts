@@ -1,7 +1,7 @@
 import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile, PluginManifest } from 'obsidian';
 
 import { IFlowershowSettings, DEFAULT_SETTINGS } from 'src/settings';
-import Publisher, { IPublisher } from 'src/Publisher';
+import Publisher from 'src/Publisher';
 import PublishStatusBar from 'src/PublishStatusBar';
 import PublishStatusModal from 'src/PublishStatusModal';
 import SettingView from 'src/SettingView';
@@ -17,7 +17,7 @@ export default class Flowershow extends Plugin {
 	private publishStatusModal: PublishStatusModal;
 
 	public settings: IFlowershowSettings;
-	public publisher: IPublisher;
+	public publisher: Publisher;
 
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
@@ -30,7 +30,11 @@ export default class Flowershow extends Plugin {
     this.logStartupEvent("Plugin Constructor ready, starting onload()");
 
 		await this.loadSettings();
-		this.publisher = new Publisher(this.app, this.settings);
+
+    const statusBarItem = this.addStatusBarItem();
+    const statusBar = new PublishStatusBar(statusBarItem);
+
+		this.publisher = new Publisher(this.app, this.settings, statusBar);
 
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
@@ -79,7 +83,7 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-  /** Publish single note and any embeds */
+  /** Publish single note and its embeds */
   // TODO make sure that embeds in frontmatter are published too!
   async publishSingleNote() {
     try {
@@ -89,7 +93,7 @@ export default class Flowershow extends Plugin {
         return;
       }
       if (currentFile.extension !== "md") {
-        new Notice("This isn’t a Markdown file. Open a .md note and try again.");
+        new Notice("This isn't a Markdown file. Open a .md note and try again.");
         return;
       }
       new Notice("Publishing note...");
@@ -102,83 +106,33 @@ export default class Flowershow extends Plugin {
       } else {
         new Notice(`❌ Can't publish note`);
       }
+      throw e
     }
   }
 
 	async publishAllNotes() {
-    const statusBarItem = this.addStatusBarItem()
 		try {
 			const { changedFiles, deletedFiles, newFiles } = await this.publisher.getPublishStatus();
+      console.log({ changedFiles, deletedFiles, newFiles })
 
-      console.log({changedFiles, deletedFiles, newFiles})
+      const filesToDelete = deletedFiles;
+      const filesToPublish = changedFiles.concat(newFiles);
 
-			const filesToPublish: TFile[] = changedFiles.concat(newFiles);
-			const filesToDelete: string[] = deletedFiles;
-      const filesToPublishCount = filesToPublish.length;
-      const filesToDeleteCount = filesToDelete.length;
-
-      if (!filesToDeleteCount && !filesToPublishCount) {
-        new Notice("Nothing to publish or delete...")
+      if (!filesToDelete.length && !filesToPublish.length) {
+			  new Notice("Nothing to publish or delete");
         return
       }
 
-			const statusBar = new PublishStatusBar({
-        statusBarItem,
-        filesToPublishCount: filesToPublishCount,
-        filesToDeleteCount: filesToDeleteCount
+      await this.publisher.publishBatch({
+        filesToPublish,
+        filesToDelete
       });
 
-			new Notice(`Publishing ${filesToPublishCount} files...`, 8000);
-			for (const file of filesToPublish) {
-				try {
-					statusBar.incrementPublish();
-					await this.publisher.publishFile(file);
-				} catch {
-					new Notice(`Unable to publish file ${file.path}, skipping it.`)
-				}
-			}
-
-			new Notice(`Deleting ${filesToDeleteCount} files...`, 8000);
-			for (const path of filesToDelete) {
-				try {
-					statusBar.incrementDelete();
-					await this.publisher.unpublishFile(path);
-				} catch {
-					new Notice(`Unable to delete file ${path}, skipping it.`)
-				}
-			}
-
-    statusBar.finish(8000); // if this DOESN’T remove, then:
-    // statusEl.remove();
-		} catch (e) {
-			statusBarItem.remove();
-			console.error(e)
-			new Notice("Unable to publish multiple notes, something went wrong.")
+		} catch (e: any) {
+			console.error(e);
+			new Notice("Unable to publish notes. See console errors for more info.");
 		}
 	}
-
-	// async copyNoteUrlToClipboard() {
-	// 	try {
-	// 		const currentFile = this.app.workspace.getActiveFile();
-	// 		if (!currentFile) {
-	// 			new Notice("No file is open/active. Please open a file and try again.")
-	// 			return;
-	// 		}
-
-	// 		const fullUrl = this.siteManager.getNoteUrl(currentFile);
-
-	// 		await navigator.clipboard.writeText(fullUrl);
-	// 		new Notice(`Note URL copied to clipboard`);
-	// 	} catch (e) {
-	// 		console.log(e)
-	// 		new Notice("Unable to copy note URL to clipboard, something went wrong.")
-	// 	}
-	// }
-
-	// async addPublishFlag() {
-	// 	const engine = new ObsidianFrontMatterEngine(this.app.vault, this.app.metadataCache, this.app.workspace.getActiveFile());
-	// 	engine.set("dgpublish", true).apply();
-	// }
 
   openPublishStatusModal() {
     if (!this.publishStatusModal) {
@@ -217,11 +171,10 @@ class FlowershowSettingTab extends PluginSettingTab {
       async () => {
         await this.plugin.saveData(this.plugin.settings)
         // rebuild dependents to pick up new settings
-        this.plugin.publisher = new Publisher(this.app, this.plugin.settings);
+        const statusBarItem = this.plugin.addStatusBarItem();
+        const statusBar = new PublishStatusBar(statusBarItem);
+        this.plugin.publisher = new Publisher(this.app, this.plugin.settings, statusBar);
       });
 		settingView.initialize();
 	}
 }
-
-
-
