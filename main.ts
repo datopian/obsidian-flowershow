@@ -3,10 +3,8 @@ import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile, PluginMan
 import { IFlowershowSettings, DEFAULT_SETTINGS } from 'src/settings';
 import Publisher, { IPublisher } from 'src/Publisher';
 import PublishStatusBar from 'src/PublishStatusBar';
-import PublishStatusManager from 'src/PublishStatusManager';
 import PublishStatusModal from 'src/PublishStatusModal';
 import SettingView from 'src/SettingView';
-import SiteManager, { ISiteManager } from 'src/SiteManager';
 
 import { flowershowIcon } from 'src/constants';
 import { FlowershowError } from 'src/utils';
@@ -20,8 +18,6 @@ export default class Flowershow extends Plugin {
 
 	public settings: IFlowershowSettings;
 	public publisher: IPublisher;
-	public siteManager: ISiteManager;
-	public publishStatusManager: PublishStatusManager;
 
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
@@ -35,8 +31,6 @@ export default class Flowershow extends Plugin {
 
 		await this.loadSettings();
 		this.publisher = new Publisher(this.app, this.settings);
-		this.siteManager = new SiteManager(this.app.metadataCache, this.settings);
-		this.publishStatusManager = new PublishStatusManager(this.siteManager, this.publisher);
 
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
@@ -85,6 +79,8 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
+  /** Publish single note and any embeds */
+  // TODO make sure that embeds in frontmatter are published too!
   async publishSingleNote() {
     try {
       const currentFile = this.app.workspace.getActiveFile();
@@ -110,42 +106,52 @@ export default class Flowershow extends Plugin {
   }
 
 	async publishAllNotes() {
-		const statusEl = this.addStatusBarItem();
+    const statusBarItem = this.addStatusBarItem()
 		try {
+			const { changedFiles, deletedFiles, newFiles } = await this.publisher.getPublishStatus();
 
-			new Notice('Processing files to publish...');
+      console.log({changedFiles, deletedFiles, newFiles})
 
-			const { unpublishedNotes, changedNotes, deletedNotePaths } = await this.publishStatusManager.getPublishStatus();
-			const notesToPublish: TFile[] = changedNotes.concat(unpublishedNotes);
-			const notesToDelete: string[] = deletedNotePaths;
-			// TODO what about images to publish?
-			const filesRequiringActionCount = notesToPublish.length + notesToDelete.length;
+			const filesToPublish: TFile[] = changedFiles.concat(newFiles);
+			const filesToDelete: string[] = deletedFiles;
+      const filesToPublishCount = filesToPublish.length;
+      const filesToDeleteCount = filesToDelete.length;
 
-			const statusBar = new PublishStatusBar(statusEl, filesRequiringActionCount);
+      if (!filesToDeleteCount && !filesToPublishCount) {
+        new Notice("Nothing to publish or delete...")
+        return
+      }
 
-			new Notice(`Publishing ${notesToPublish.length} notes and deleting ${notesToDelete.length} notes.`, 8000);
+			const statusBar = new PublishStatusBar({
+        statusBarItem,
+        filesToPublishCount: filesToPublishCount,
+        filesToDeleteCount: filesToDeleteCount
+      });
 
-			for (const file of notesToPublish) {
+			new Notice(`Publishing ${filesToPublishCount} files...`, 8000);
+			for (const file of filesToPublish) {
 				try {
-					statusBar.increment();
-					await this.publisher.publishNote(file);
+					statusBar.incrementPublish();
+					await this.publisher.publishFile(file);
 				} catch {
-					new Notice(`Unable to publish note ${file.path}, skipping it.`)
+					new Notice(`Unable to publish file ${file.path}, skipping it.`)
 				}
 			}
-			for (const path of notesToDelete) {
+
+			new Notice(`Deleting ${filesToDeleteCount} files...`, 8000);
+			for (const path of filesToDelete) {
 				try {
-					// statusBar.increment();
-					await this.publisher.unpublishNote(path);
+					statusBar.incrementDelete();
+					await this.publisher.unpublishFile(path);
 				} catch {
-					new Notice(`Unable to delete note ${path}, skipping it.`)
+					new Notice(`Unable to delete file ${path}, skipping it.`)
 				}
 			}
 
     statusBar.finish(8000); // if this DOESN’T remove, then:
     // statusEl.remove();
 		} catch (e) {
-			statusEl.remove();
+			statusBarItem.remove();
 			console.error(e)
 			new Notice("Unable to publish multiple notes, something went wrong.")
 		}
@@ -178,7 +184,6 @@ export default class Flowershow extends Plugin {
     if (!this.publishStatusModal) {
       this.publishStatusModal = new PublishStatusModal(
         this.app,
-        this.publishStatusManager,
         this.publisher,
         this.settings
       );
@@ -213,8 +218,6 @@ class FlowershowSettingTab extends PluginSettingTab {
         await this.plugin.saveData(this.plugin.settings)
         // rebuild dependents to pick up new settings
         this.plugin.publisher = new Publisher(this.app, this.plugin.settings);
-        this.plugin.siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
-        this.plugin.publishStatusManager = new PublishStatusManager(this.plugin.siteManager, this.plugin.publisher);
       });
 		settingView.initialize();
 	}

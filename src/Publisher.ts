@@ -5,10 +5,21 @@ import { validatePublishFrontmatter, validateSettings } from "./Validator";
 import { FlowershowError } from "./utils";
 
 export interface IPublisher {
-    publishNote(file: TFile): Promise<void>;
-    unpublishNote(notePath: string): Promise<void>;
+    publishFile(file: TFile): Promise<void>;
+    publishNote(file: TFile, withEmbeds: boolean): Promise<void>;
+    unpublishFile(notePath: string): Promise<void>;
     testConnection(): Promise<{ success: boolean; message: string }>;
+    getPublishStatus(): Promise<PublishStatus>
 }
+
+export interface PublishStatus {
+    unchangedFiles: Array<TFile>;
+    changedFiles: Array<TFile>;
+    newFiles: Array<TFile>;
+    deletedFiles: Array<string>;
+}
+
+export type PathToHashDict = { [key: string]: string };
 
 export default class Publisher implements IPublisher {
     private app: App;
@@ -84,7 +95,35 @@ export default class Publisher implements IPublisher {
     }
   }
 
-    async publishNote(file: TFile) {
+  
+  /** Publish any file */
+  async publishFile(file: TFile) {
+    const cachedFile = this.app.metadataCache.getCache(file.path)
+    if (!cachedFile) {
+      throw new FlowershowError(`Note file ${file.path} not found!`)
+    }
+
+    if (file.extension === "md" || file.extension === "mdx") {
+      const frontmatter = cachedFile.frontmatter
+
+      if (frontmatter && !validatePublishFrontmatter(frontmatter)) {
+          throw new FlowershowError("Can't publish note with `publish: false`")
+      }
+
+      const markdown = await this.app.vault.cachedRead(file);
+      await this.uploadToGithub(file.path, Buffer.from(markdown).toString('base64'))
+    } else if (file.extension === "json" || file.extension === "css" || file.extension === "yaml" || file.extension === "yml") {
+      const content = await this.app.vault.cachedRead(file);
+      await this.uploadToGithub(file.path, Buffer.from(content).toString('base64'))
+    } else {
+      const content = await this.app.vault.readBinary(file);
+      await this.uploadToGithub(file.path, Buffer.from(content).toString('base64'))
+    }
+  }
+
+
+    /** Publish note and optionally its embeds */
+    async publishNote(file: TFile, withEmbeds = true) {
       const cachedFile = this.app.metadataCache.getCache(file.path)
       if (!cachedFile) {
         throw new FlowershowError(`Note file ${file.path} not found!`)
@@ -96,50 +135,116 @@ export default class Publisher implements IPublisher {
           throw new FlowershowError("Can't publish note with `publish: false`")
       }
 
-      // Publish file and its embeds
+      // Publish file
       const markdown = await this.app.vault.read(file);
       await this.uploadToGithub(file.path, Buffer.from(markdown).toString('base64'))
 
-      // Track unique embeds for this publish run
-      const uniqueEmbeds = new Map<string, TFile>();
-      
-      // First collect unique embeds
-      cachedFile.embeds?.forEach(embed => {
-        const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown);
-        if (embedTFile && !uniqueEmbeds.has(embedTFile.path)) {
-          uniqueEmbeds.set(embedTFile.path, embedTFile);
+      if (withEmbeds) {
+        // Track unique embeds for this publish run
+        const uniqueEmbeds = new Map<string, TFile>();
+        
+        // First collect unique embeds
+        cachedFile.embeds?.forEach(embed => {
+          const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown);
+          if (embedTFile && !uniqueEmbeds.has(embedTFile.path)) {
+            uniqueEmbeds.set(embedTFile.path, embedTFile);
+          }
+        });
+
+        // Then upload unique embeds
+        const embedPromises = Array.from(uniqueEmbeds.values()).map(async (embedTFile) => {
+          let embedBase64: string;
+          if (embedTFile.extension !== "md") {
+            const embedBinary = await this.app.vault.readBinary(embedTFile);
+            embedBase64 = Buffer.from(embedBinary).toString('base64');
+          } else {
+            // Note transclusions are not supported yet, but let's at least publish them
+            // Flowershow then displays them as regular links
+            const embedMarkdown = await this.app.vault.read(embedTFile);
+            embedBase64 = Buffer.from(embedMarkdown).toString('base64');
+          }
+          await this.uploadToGithub(embedTFile.path, embedBase64);
+        });
+
+        if (embedPromises.length > 0) {
+          await Promise.all(embedPromises);
         }
-      });
-
-      console.log({uniqueEmbeds})
-
-      // Then upload unique embeds
-      const embedPromises = Array.from(uniqueEmbeds.values()).map(async (embedTFile) => {
-        let embedBase64: string;
-        if (embedTFile.extension !== "md") {
-          const embedBinary = await this.app.vault.readBinary(embedTFile);
-          embedBase64 = Buffer.from(embedBinary).toString('base64');
-        } else {
-          // Note transclusions are not supported yet, but let's at least publish them
-          // Flowershow then displays them as regular links
-          const embedMarkdown = await this.app.vault.read(embedTFile);
-          embedBase64 = Buffer.from(embedMarkdown).toString('base64');
-        }
-        await this.uploadToGithub(embedTFile.path, embedBase64);
-      });
-
-      if (embedPromises.length > 0) {
-        await Promise.all(embedPromises);
       }
     }
 
-    async unpublishNote(notePath: string) {
+    async unpublishFile(notePath: string) {
         await this.deleteFromGithub(notePath);
         // TODO what about embeds that are not used elsewhere?
     }
 
+    async getPublishStatus(): Promise<PublishStatus> {
+        const unchangedFiles: Array<TFile> = []; // published and unchanged files in vault
+        const changedFiles: Array<TFile> = []; // published and changed files in vault
+        const deletedFiles: Array<string> = []; // published but deleted files from vault
+        const newFiles: Array<TFile> = []; // new, not yet published files
+
+        const remoteFileHashes = await this.getRemoteFileHashes();
+        console.log({remoteFileHashes})
+        
+        const localFiles = this.app.vault.getFiles();
+        console.log({localFiles})
+        
+        const seenRemoteFiles = new Set<string>();
+        
+        // Find new and changed files
+        for (const file of localFiles) {
+            const normalizedPath = this.normalizePath(file.path);
+            const remoteHash = remoteFileHashes[normalizedPath];
+            
+            if (!remoteHash) {
+                // File exists locally but not remotely
+                newFiles.push(file);
+                continue;
+            }
+            
+            // Mark this remote file as seen
+            seenRemoteFiles.add(normalizedPath);
+            
+            let content: string;
+            let encoding: "utf-8" | "base64";
+            // Get local file content and calculate its hash
+            if (isPlainTextExtension(file.extension)) {
+              content = await this.app.vault.cachedRead(file); // string
+              encoding = "utf-8";
+            } else {
+              const bytes = await this.app.vault.readBinary(file);
+              content = Buffer.from(bytes).toString("base64");
+              encoding = "base64";
+            }
+
+            const localHash = await this.octokit.rest.git.createBlob({
+                owner: this.settings.githubUserName,
+                repo: this.settings.githubRepo,
+                content,
+                encoding
+            }).then(response => response.data.sha);
+
+            console.log({path: file.path, remoteHash, localHash})
+            
+            // Compare hashes to determine if file has changed
+            if (localHash === remoteHash) {
+                unchangedFiles.push(file);
+            } else {
+                changedFiles.push(file);
+            }
+        }
+        
+        // Find deleted files (exist remotely but not locally)
+        for (const [remotePath, _] of Object.entries(remoteFileHashes)) {
+            if (!seenRemoteFiles.has(remotePath)) {
+                deletedFiles.push(remotePath);
+            }
+        }
+
+        return {unchangedFiles, changedFiles, deletedFiles, newFiles };
+    }
+
     private normalizePath(p: string): string {
-      // Avoid leading slashes which GitHub treats oddly for content paths
       return p.replace(/^\/+/, "");
     }
 
@@ -158,8 +263,8 @@ export default class Publisher implements IPublisher {
         // If it's a file, return its sha; if directory/array, treat as missing for single-file ops
         return Array.isArray(res.data) ? null : (res.data.type === "file" ? res.data.sha ?? null : null);
       } catch (e: any) {
-        console.log(e)
         if (e?.status === 404) return null;
+        console.log({e})
         throw e;
       }
     }
@@ -181,7 +286,9 @@ export default class Publisher implements IPublisher {
 
       const createOrUpdate = async () => {
         const sha = await this.getFileSha(owner, repo, filePath);
+        console.log({sha})
         const message = `${sha ? "Update" : "Add"} content ${filePath}`;
+        console.log({message})
 
         await octo.rest.repos.createOrUpdateFileContents({
           owner,
@@ -235,4 +342,38 @@ export default class Publisher implements IPublisher {
 
         await octokit.request('DELETE /repos/{owner}/{repo}/contents/{path}', payload);
     }
+
+    /** Get dictionary of path->hash of all the files in the repo */
+    async getRemoteFileHashes(): Promise<PathToHashDict> {
+      // Get the full tree at HEAD (recursive) and bypass caches
+      const { data } = await this.octokit.rest.git.getTree({
+        owner: this.settings.githubUserName,
+        repo: this.settings.githubRepo,
+        tree_sha: "HEAD",
+        recursive: "1",
+        headers: {
+          // Forces GitHub to skip ETag-based caching and return fresh data
+          "If-None-Match": ""
+        }
+      });
+
+      const files = data.tree ?? [];
+
+      const notes: Array<{ path: string; sha: string }> = files
+        .filter((file)  => !!file && file.type === "blob" && typeof file.path === "string"
+        )
+        .map(({ path, sha }) => ({ path, sha }));
+
+      const hashes: PathToHashDict = notes.reduce<PathToHashDict>((dict, note) => {
+        dict[note.path] = note.sha;
+        return dict;
+      }, {});
+
+      return hashes;
+    }
+}
+
+function isPlainTextExtension(ext: string) {
+  return ["md", "json", "mdx", "yaml", "yml"].includes(ext)
+
 }
