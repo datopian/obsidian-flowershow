@@ -13,7 +13,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { useTreeItem } from '@mui/x-tree-view/useTreeItem';
 import { TreeItemProvider } from '@mui/x-tree-view/TreeItemProvider';
 import { TreeItemIcon } from '@mui/x-tree-view/TreeItemIcon';
-import { TreeItemIconContainer, TreeItemCheckbox, TreeItemLabel, TreeItemRoot, TreeItemContent, TreeItemGroupTransition } from '@mui/x-tree-view/TreeItem';
+import { TreeItemIconContainer, TreeItemCheckbox, TreeItemLabel, TreeItemRoot, TreeItemContent, TreeItemGroupTransition, treeItemClasses } from '@mui/x-tree-view/TreeItem';
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { FlowershowError } from 'src/utils';
@@ -160,7 +160,7 @@ const Section: React.FC<SectionProps> = ({
           checkboxSelection
           selectedItems={selectedFileItems}
           onSelectedItemsChange={(_, ids) => {
-            console.log({ids})
+            // console.log({ids})
             // Drop any folder IDs; keep files only
             const filesOnly = (ids as (string | number)[]).filter((id) =>
               fileIdSet.has(String(id))

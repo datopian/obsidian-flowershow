@@ -235,7 +235,7 @@ export default class Publisher {
               localOid = await gitBlobOidFromBinary(bytes, algo);
             }
 
-            console.log({file: file.path, localOid, remoteHash})
+            // console.log({file: file.path, localOid, remoteHash})
             // Compare hashes to determine if file has changed
             if (localOid === remoteHash) {
                 unchangedFiles.push(file);
@@ -274,7 +274,7 @@ export default class Publisher {
         return Array.isArray(res.data) ? null : (res.data.type === "file" ? res.data.sha ?? null : null);
       } catch (e: any) {
         if (e?.status === 404) return null;
-        console.log({e})
+        console.error({e})
         throw e;
       }
     }
@@ -405,7 +405,7 @@ export default class Publisher {
 
   // content is base64 string
   private async uploadToGithub(path: string, content: string) {
-    console.log(`Uploading ${path}`)
+    // console.log(`Uploading ${path}`)
     if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
 
     const normalizedPath = this.normalizePath(path);
@@ -435,9 +435,7 @@ export default class Publisher {
 
     const createOrUpdate = async () => {
       const sha = await this.getFileSha(owner, repo, filePath);
-      console.log({sha})
       const message = `${sha ? "Update" : "Add"} content ${filePath}`;
-      console.log({message})
 
       await octo.rest.repos.createOrUpdateFileContents({
         owner,

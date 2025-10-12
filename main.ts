@@ -120,7 +120,7 @@ export default class Flowershow extends Plugin {
 	async publishAllFiles() {
 		try {
 			const { changedFiles, deletedFiles, newFiles } = await this.publisher.getPublishStatus();
-      console.log({ changedFiles, deletedFiles, newFiles })
+      // console.log({ changedFiles, deletedFiles, newFiles })
 
       const filesToDelete = deletedFiles;
       const filesToPublish = changedFiles.concat(newFiles);
