@@ -38,6 +38,7 @@ export default class SettingView {
       const publishHeader = this.settingsRootElement.createEl('h3', { text: 'Publishing Settings' });
       this.initializeAutoMergeSetting();
       this.initializeMergeMessageSetting();
+      this.initializeExcludePatternsSetting();
       
   }
 
@@ -171,5 +172,36 @@ export default class SettingView {
           await this.saveSettings();
         })
       );
+  }
+
+  private initializeExcludePatternsSetting() {
+    const settingContainer = this.settingsRootElement.createDiv('exclude-patterns-container');
+    
+    new Setting(settingContainer)
+      .setName('Exclude Patterns')
+      .setDesc('Regex patterns to exclude files and folders from publishing. One pattern per line.')
+      .addTextArea(textarea => {
+        textarea
+          .setPlaceholder('^\\.git/\n^node_modules/\n\\.DS_Store$')
+          .setValue(this.settings.excludePatterns.join('\n'))
+          .onChange(async (value) => {
+            // Split by newlines and filter out empty lines
+            const patterns = value.split('\n').filter(pattern => pattern.trim() !== '');
+            this.settings.excludePatterns = patterns;
+            await this.saveSettings();
+          });
+        
+        // Adjust textarea height
+        textarea.inputEl.rows = 4;
+        textarea.inputEl.style.width = '100%';
+      });
+
+    // Add a help text with examples
+    const helpText = settingContainer.createEl('div', { cls: 'setting-item-description' });
+    helpText.innerHTML = `
+      Note: This excludes files from being pushed to your GitHub repo. If you still want them to be pushed and version controled, but you don't want them to be published by Flowershow, exclude them in your config.json.
+      Examples:<br>
+      • <code>^private/</code> - Exlude private directory
+    `
   }
 }

@@ -117,8 +117,11 @@ export default class Publisher {
   }
 
 
-    /** Publish note and optionally its embeds */
-    async publishNote(file: TFile, withEmbeds = true) {
+    /**
+     * Publish note and optionally its embeds by creating a PR
+     * @returns PR information including branch name, PR number, URL and merge status
+     */
+    async publishNote(file: TFile, withEmbeds = true): Promise<{ branch: string; prNumber: number; prUrl: string; merged: boolean }> {
       const cachedFile = this.app.metadataCache.getCache(file.path)
       if (!cachedFile) {
         throw new FlowershowError(`Note file ${file.path} not found!`)
@@ -130,15 +133,33 @@ export default class Publisher {
           throw new FlowershowError("Can't publish note with `publish: false`")
       }
 
-      // Publish file
-      const markdown = await this.app.vault.read(file);
-      await this.uploadToGithub(file.path, Buffer.from(markdown).toString('base64'))
+      const filesToPublish: TFile[] = [file];
+
+      // Check frontmatter for image and avatar fields with wikilinks
+      if (frontmatter) {
+        const imageFields = ['image', 'avatar'];
+        const wikilinkRegex = /^\[\[([^\]]+)\]\]$/;
+        
+        for (const field of imageFields) {
+          if (typeof frontmatter[field] === 'string') {
+            const match = frontmatter[field].match(wikilinkRegex);
+            if (match) {
+              const link = match[1]; // Get the content between [[]]
+              const imageFile = this.app.metadataCache.getFirstLinkpathDest(link, file.path);
+              if (imageFile && !filesToPublish.some(f => f.path === imageFile.path)) {
+                filesToPublish.push(imageFile);
+              }
+            }
+          }
+        }
+      }
 
       if (withEmbeds) {
         // Track unique embeds for this publish run
         const uniqueEmbeds = new Map<string, TFile>();
         
         // First collect unique embeds
+        const markdown = await this.app.vault.read(file);
         cachedFile.embeds?.forEach(embed => {
           const embedTFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, markdown);
           if (embedTFile && !uniqueEmbeds.has(embedTFile.path)) {
@@ -146,25 +167,15 @@ export default class Publisher {
           }
         });
 
-        // Then upload unique embeds
-        const embedPromises = Array.from(uniqueEmbeds.values()).map(async (embedTFile) => {
-          let embedBase64: string;
-          if (embedTFile.extension !== "md") {
-            const embedBinary = await this.app.vault.readBinary(embedTFile);
-            embedBase64 = Buffer.from(embedBinary).toString('base64');
-          } else {
-            // Note transclusions are not supported yet, but let's at least publish them
-            // Flowershow then displays them as regular links
-            const embedMarkdown = await this.app.vault.read(embedTFile);
-            embedBase64 = Buffer.from(embedMarkdown).toString('base64');
-          }
-          await this.uploadToGithub(embedTFile.path, embedBase64);
-        });
-
-        if (embedPromises.length > 0) {
-          await Promise.all(embedPromises);
-        }
+        // Add embeds to files to publish
+        filesToPublish.push(...uniqueEmbeds.values());
       }
+
+      // Create PR with all files
+      return await this.publishBatch({
+        filesToPublish,
+        branchNameHint: `publish-${this.normalizePath(file.path).replace(/\//g, '-')}`
+      });
     }
 
     async unpublishFile(notePath: string) {
@@ -179,10 +190,10 @@ export default class Publisher {
         const newFiles: Array<TFile> = []; // new, not yet published files
 
         const remoteFileHashes = await this.getRemoteFileHashes();
-        console.log({remoteFileHashes})
+        // console.log({remoteFileHashes})
         
         const localFiles = this.app.vault.getFiles();
-        console.log({localFiles})
+        // console.log({localFiles})
         
         const seenRemoteFiles = new Set<string>();
         const algo = detectGitAlgoFromSha(remoteFileHashes[0])
@@ -190,6 +201,20 @@ export default class Publisher {
         // Find new and changed files
         for (const file of localFiles) {
             const normalizedPath = this.normalizePath(file.path);
+
+            // Check if file matches any exclude pattern
+            if (this.settings.excludePatterns?.some(pattern => {
+                try {
+                    const regex = new RegExp(pattern);
+                    return regex.test(normalizedPath);
+                } catch (e) {
+                    console.error(`Invalid regex pattern: ${pattern}`, e);
+                    return false;
+                }
+            })) {
+                continue; // Skip excluded files
+            }
+
             const remoteHash = remoteFileHashes[normalizedPath];
             
             if (!remoteHash) {
@@ -210,6 +235,7 @@ export default class Publisher {
               localOid = await gitBlobOidFromBinary(bytes, algo);
             }
 
+            console.log({file: file.path, localOid, remoteHash})
             // Compare hashes to determine if file has changed
             if (localOid === remoteHash) {
                 unchangedFiles.push(file);
@@ -285,6 +311,22 @@ export default class Publisher {
 
     // One commit per file: PUSH
     for (const file of filesToPublish) {
+      const normalizedPath = this.normalizePath(file.path);
+      
+      // Skip excluded files
+      if (this.settings.excludePatterns?.some(pattern => {
+        try {
+          const regex = new RegExp(pattern);
+          return regex.test(normalizedPath);
+        } catch (e) {
+          console.error(`Invalid regex pattern: ${pattern}`, e);
+          return false;
+        }
+      })) {
+        console.log(`Skipping excluded file: ${normalizedPath}`);
+        continue;
+      }
+
       let base64content: string;
 
       if (isPlainTextExtension(file.extension)) {
@@ -365,6 +407,21 @@ export default class Publisher {
   private async uploadToGithub(path: string, content: string) {
     console.log(`Uploading ${path}`)
     if (!validateSettings(this.settings)) throw new FlowershowError("Invalid Flowershow GitHub settings");
+
+    const normalizedPath = this.normalizePath(path);
+    
+    // Check if file should be excluded
+    if (this.settings.excludePatterns?.some(pattern => {
+      try {
+        const regex = new RegExp(pattern);
+        return regex.test(normalizedPath);
+      } catch (e) {
+        console.error(`Invalid regex pattern: ${pattern}`, e);
+        return false;
+      }
+    })) {
+      throw new FlowershowError(`File ${path} matches exclude pattern and cannot be published`);
+    }
 
     const owner = this.settings.githubUserName;
     const repo = this.settings.githubRepo;

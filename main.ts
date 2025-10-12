@@ -7,7 +7,7 @@ import { PublishStatusModal } from 'src/components/PublishStatusModal';
 import SettingView from 'src/SettingView';
 
 import { flowershowIcon } from 'src/constants';
-import { FlowershowError } from 'src/utils';
+import { FlowershowError, createPRNotice } from 'src/utils';
 
 
 export default class Flowershow extends Plugin {
@@ -60,8 +60,8 @@ export default class Flowershow extends Plugin {
 	async addCommands() {
 
 		this.addCommand({
-			id: 'publish-note',
-			name: 'Publish single note',
+			id: 'publish-single-note',
+			name: 'Publish single note (with embeds)',
 			checkCallback: (checking) => {
 				if (checking) {
           const currentFile = this.app.workspace.getActiveFile();
@@ -72,13 +72,13 @@ export default class Flowershow extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'publish-all-notes',
-			name: 'Publish all notes',
+			id: 'publish-all-files',
+			name: 'Publish all',
 			checkCallback: (checking: boolean) => {
 				if (checking) {
 					return true
 				}
-				this.publishAllNotes();
+				this.publishAllFiles();
 			},
 		});
 	}
@@ -96,9 +96,15 @@ export default class Flowershow extends Plugin {
         new Notice("This isn't a Markdown file. Open a .md note and try again.");
         return;
       }
-      new Notice("Publishing note...");
-      await this.publisher.publishNote(currentFile);
-      new Notice("✅ Note published!");
+      new Notice("⌛ Publishing note...");
+      const result = await this.publisher.publishNote(currentFile);
+      const frag = createPRNotice(
+        "Published note.",
+        result.prNumber,
+        result.prUrl,
+        result.merged
+      );
+      new Notice(frag, 8000);
     } catch (e: any) {
       console.error(e);
       if (e instanceof FlowershowError) {
@@ -110,7 +116,8 @@ export default class Flowershow extends Plugin {
     }
   }
 
-	async publishAllNotes() {
+  // Publish new or changed files, and unpublish deleted files
+	async publishAllFiles() {
 		try {
 			const { changedFiles, deletedFiles, newFiles } = await this.publisher.getPublishStatus();
       console.log({ changedFiles, deletedFiles, newFiles })
@@ -119,20 +126,30 @@ export default class Flowershow extends Plugin {
       const filesToPublish = changedFiles.concat(newFiles);
 
       if (!filesToDelete.length && !filesToPublish.length) {
-			  new Notice("❌ Nothing to publish or delete.");
+			  new Notice("❌ Nothing new to publish or delete.");
         return
       }
 
-      await this.publisher.publishBatch({
+      const result = await this.publisher.publishBatch({
         filesToPublish,
         filesToDelete
       });
 
-      new Notice("💐 Published!")
+      const frag = createPRNotice(
+        `Published ${filesToPublish.length + filesToDelete.length} notes.`,
+        result.prNumber,
+        result.prUrl,
+        result.merged
+      );
+      new Notice(frag, 8000);
 
-		} catch (e: any) {
-			console.error(e);
-			new Notice("❌ Can't publish notes. Check console errors for more info.");
+  } catch (e: any) {
+   console.error(e);
+      if (e instanceof FlowershowError) {
+        new Notice(`❌ Can't publish notes: ${e.message}`);
+      } else {
+        new Notice("❌ Can't publish notes. Check console errors for more info.");
+      }
 		}
 	}
 

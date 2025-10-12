@@ -56,3 +56,17 @@ export function isPlainTextExtension(ext: string) {
 
 }
 export type GitAlgo = "SHA-1" | "SHA-256";
+
+export function createPRNotice(message: string, prNumber: number, prUrl: string, merged: boolean): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  frag.append(document.createTextNode(`${message} PR #${prNumber} `));
+
+  const a = document.createElement('a');
+  a.href = prUrl;
+  a.textContent = merged ? 'merged' : 'created';
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+
+  frag.append(a);
+  return frag;
+}

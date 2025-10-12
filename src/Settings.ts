@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS: IFlowershowSettings = {
 	branch: 'main',
 	autoMergePullRequests: false,
 	mergeCommitMessage: 'Merge content updates',
+	excludePatterns: ["\.excalidraw(\.(md|excalidraw))?$"],
 }
 
 export interface IFlowershowSettings {
@@ -14,4 +15,5 @@ export interface IFlowershowSettings {
 	branch: string;
 	autoMergePullRequests: boolean;
 	mergeCommitMessage: string;
+	excludePatterns: string[]; // Array of regex patterns to exclude files/folders
 }
