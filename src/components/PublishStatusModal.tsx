@@ -87,6 +87,7 @@ interface SectionProps {
   count: number;
   items: Array<TFile | string>;
   buttonText?: string;
+  loading?: boolean;
   onButtonClick?: () => Promise<void>;
   selectedItems?: string[];
   onSelectionChange?: (ids: (string | number)[]) => void;
@@ -97,6 +98,7 @@ const Section: React.FC<SectionProps> = ({
   count,
   items,
   buttonText,
+  loading = false,
   onButtonClick,
   selectedItems = [],
   onSelectionChange,
@@ -142,31 +144,33 @@ const Section: React.FC<SectionProps> = ({
               await onButtonClick();
               button.disabled = false;
             }}
-            disabled={selectedFileItems.length === 0}
+            disabled={loading || selectedFileItems.length === 0}
           >
             {`${buttonText} (${selectedFileItems.length})`}
           </button>
         )}
       </div>
 
-      <RichTreeView
-        aria-label={`${title} files`}
-        items={fileTree}
-        multiSelect
-        checkboxSelection
-        selectedItems={selectedFileItems}
-        onSelectedItemsChange={(_, ids) => {
-          // Drop any folder IDs; keep files only
-          const filesOnly = (ids as (string | number)[]).filter((id) =>
-            fileIdSet.has(String(id))
-          );
-          onSelectionChange?.(filesOnly);
-        }}
-        selectionPropagation={{ descendants: true, parents: true }}
-        itemChildrenIndentation={16}
-        slots={{ item: CustomTreeItem }}
-        sx={{ flexGrow: 1, maxWidth: '100%', color: 'var(--text-normal)' }}
-      />
+      {loading ? <div style={{ padding: '0 10px', color: 'var(--text-muted)' }}>Loading...</div> : (
+        <RichTreeView
+          aria-label={`${title} files`}
+          items={fileTree}
+          multiSelect
+          checkboxSelection
+          selectedItems={selectedFileItems}
+          onSelectedItemsChange={(_, ids) => {
+            // Drop any folder IDs; keep files only
+            const filesOnly = (ids as (string | number)[]).filter((id) =>
+              fileIdSet.has(String(id))
+            );
+            onSelectionChange?.(filesOnly);
+          }}
+          selectionPropagation={{ descendants: true, parents: true }}
+          itemChildrenIndentation={16}
+          slots={{ item: CustomTreeItem }}
+          sx={{ flexGrow: 1, maxWidth: '100%', color: 'var(--text-normal)' }}
+        />
+      )}
     </div>
   );
 };
@@ -216,10 +220,8 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
 
 
   const fetchStatus = async () => {
-    setProgressMessage('⌛ Loading publication status');
     const status = await publisher.getPublishStatus();
     setPublishStatus(status);
-    setProgressMessage('');
   };
 
   React.useEffect(() => {
@@ -227,10 +229,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
   }, []);
 
   const refreshStatus = async () => {
-    setProgressMessage('⌛ Refreshing status...');
     await fetchStatus();
-    setProgressMessage('✅ Status refreshed');
-    setTimeout(() => setProgressMessage(''), 2000);
   };
 
   const publishNewFiles = async () => {
@@ -316,11 +315,14 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
   };
 
 
-  if (!publishStatus) {
-    return <div>Loading...</div>;
-  }
+  const { unchangedFiles, changedFiles, newFiles, deletedFiles } = publishStatus || {
+    unchangedFiles: [],
+    changedFiles: [],
+    newFiles: [],
+    deletedFiles: []
+  };
 
-  const { unchangedFiles, changedFiles, newFiles, deletedFiles } = publishStatus;
+  const isLoading = !publishStatus;
 
   return (
     <>
@@ -344,7 +346,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <div className="clickable-icon" onClick={refreshStatus} style={{ cursor: 'pointer' }}>
+          <div title="Refresh" className="clickable-icon" onClick={refreshStatus} style={{ cursor: 'pointer' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="svg-icon lucide-refresh-cw">
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
               <path d="M21 3v5h-5"></path>
@@ -352,7 +354,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
               <path d="M3 21v-5h5"></path>
             </svg>
           </div>
-          <div 
+          {/* <div 
             className="clickable-icon" 
             onClick={() => {
               onClose();
@@ -367,7 +369,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
               <circle cx="12" cy="12" r="3"></circle>
             </svg>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -375,54 +377,60 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
         {progressMessage}
       </div>
 
-      <Section
-        title="Changed"
-        count={changedFiles.length}
-        items={changedFiles}
-        buttonText="Update selected files"
-        onButtonClick={publishChangedFiles}
-        selectedItems={selectedBySection.Changed}
-        onSelectionChange={(ids) => {
-          console.log({ids})
-          setSelectedBySection((s) => ({ ...s, Changed: ids as string[] }))
-        }}
-      />
+      <div style={{ opacity: isLoading ? 0.7 : 1 }}>
+        <Section
+          title="Changed"
+          count={changedFiles.length}
+          items={changedFiles}
+          buttonText="Update selected files"
+          loading={isLoading}
+          onButtonClick={publishChangedFiles}
+          selectedItems={selectedBySection.Changed}
+          onSelectionChange={(ids) => {
+            console.log({ids})
+            setSelectedBySection((s) => ({ ...s, Changed: ids as string[] }))
+          }}
+        />
 
-      <Section
-        title="New"
-        count={newFiles.length}
-        items={newFiles}
-        buttonText="Publish selected files"
-        onButtonClick={publishNewFiles}
-        selectedItems={selectedBySection.New}
-        onSelectionChange={(ids) =>
-          setSelectedBySection((s) => ({ ...s, New: ids as string[] }))
-        }
-      />
+        <Section
+          title="New"
+          count={newFiles.length}
+          items={newFiles}
+          buttonText="Publish selected files"
+          loading={isLoading}
+          onButtonClick={publishNewFiles}
+          selectedItems={selectedBySection.New}
+          onSelectionChange={(ids) =>
+            setSelectedBySection((s) => ({ ...s, New: ids as string[] }))
+          }
+        />
 
-      <Section
-        title="Deleted"
-        count={deletedFiles.length}
-        items={deletedFiles}
-        buttonText="Unpublish selected files"
-        onButtonClick={unpublishDeletedFiles}
-        selectedItems={selectedBySection.Deleted}
-        onSelectionChange={(ids) =>
-          setSelectedBySection((s) => ({ ...s, Deleted: ids as string[] }))
-        }
-      />
+        <Section
+          title="Deleted"
+          count={deletedFiles.length}
+          items={deletedFiles}
+          buttonText="Unpublish selected files"
+          loading={isLoading}
+          onButtonClick={unpublishDeletedFiles}
+          selectedItems={selectedBySection.Deleted}
+          onSelectionChange={(ids) =>
+            setSelectedBySection((s) => ({ ...s, Deleted: ids as string[] }))
+          }
+        />
 
-      <Section
-        title="Unchanged (select to unpublish)"
-        count={unchangedFiles.length}
-        items={unchangedFiles}
-        buttonText="Unpublish selected files"
-        onButtonClick={unpublishUnchangedFiles}
-        selectedItems={selectedBySection.Unchanged}
-        onSelectionChange={(ids) =>
-          setSelectedBySection((s) => ({ ...s, Unchanged: ids as string[] }))
-        }
-      />
+        <Section
+          title="Unchanged (select to unpublish)"
+          count={unchangedFiles.length}
+          items={unchangedFiles}
+          buttonText="Unpublish selected files"
+          loading={isLoading}
+          onButtonClick={unpublishUnchangedFiles}
+          selectedItems={selectedBySection.Unchanged}
+          onSelectionChange={(ids) =>
+            setSelectedBySection((s) => ({ ...s, Unchanged: ids as string[] }))
+          }
+        />
+      </div>
 
     </>
   );

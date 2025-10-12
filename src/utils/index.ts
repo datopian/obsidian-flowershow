@@ -1,100 +1,58 @@
-import slugify from "@sindresorhus/slugify";
-import { MetadataCache } from "obsidian";
-import {createHash} from "crypto"
-
-// DONE
-function extractBaseUrl(url: string) {
-	return url && url.replace("https://", "").replace("http://", "").replace(/\/$/, '')
+// --- Hash helpers ---
+function hex(buf: ArrayBuffer): string {
+  const b = new Uint8Array(buf);
+  let s = "";
+  for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+  return s;
 }
 
-function generateUrlPath(filePath: string, slugifyPath = true): string {
-	if (!filePath) {
-		return filePath;
-	}
-	const extensionLessPath = filePath.substring(0, filePath.lastIndexOf("."));
-
-	if (!slugifyPath) {
-		return extensionLessPath + "/";
-	}
-
-	return extensionLessPath.split("/").map(x => slugify(x)).join("/") + "/";
+async function digest(algo: "SHA-1" | "SHA-256", data: Uint8Array): Promise<string> {
+  const ab = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+  const d = await crypto.subtle.digest(algo, ab);
+  return hex(d);
 }
 
-function generateBlobHash(content: string) {
-	const byteLength = (new TextEncoder().encode(content)).byteLength;
-	const header = `blob ${byteLength}\0`;
-	const gitBlob = header + content;
-
-  const generator = createHash('sha1');
-  generator.update(gitBlob)  
-	return generator.digest("hex") // or base64?
+// Build: "blob <len>\0<bytes>"
+function gitBlobFramedBytes(contentBytes: Uint8Array): Uint8Array {
+  const header = new TextEncoder().encode(`blob ${contentBytes.byteLength}\0`);
+  const out = new Uint8Array(header.length + contentBytes.length);
+  out.set(header, 0);
+  out.set(contentBytes, header.length);
+  return out;
 }
 
-function kebabize(str: string) {
-	return str.split('').map((letter, idx) => {
-		return letter.toUpperCase() === letter
-			? `${idx !== 0 ? '-' : ''}${letter.toLowerCase()}`
-			: letter;
-	}).join('');
+async function gitBlobOid(contentBytes: Uint8Array, algo: GitAlgo) {
+  const framed = gitBlobFramedBytes(contentBytes);
+  return digest(algo, framed);
 }
 
-const wrapAround = (value: number, size: number): number => {
-	return ((value % size) + size) % size;
-};
-
-function getRewriteRules(pathRewriteRules: string): Array<Array<string>> {
-	return pathRewriteRules.split('\n').map((line: string) => {
-		return line.split(':');
-	}).filter((rule: string[]) => {
-		return rule.length == 2;
-	});
+export async function gitBlobOidFromText(text: string, algo: GitAlgo) {
+  const bytes = new TextEncoder().encode(text);
+  return gitBlobOid(bytes, algo);
 }
 
-function getGardenPathForNote(vaultPath: string, rules: Array<Array<string>>): string {
-	for (let index = 0; index < rules.length; index++) {
-		const rule = rules[index];
-		if (vaultPath.startsWith(rule[0])) {
-			return rule[1] + vaultPath.slice(rule[0].length)
-		}
-	}
-	return vaultPath;
+export async function gitBlobOidFromBinary(
+  bytes: ArrayBuffer | Uint8Array,
+  algo: GitAlgo
+) {
+  const u8: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes as ArrayBuffer);
+  return gitBlobOid(u8, algo);
 }
 
-function escapeRegExp(string: string) {
-	return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
 
-function getVaultPathForNote(gardenPath: string, rules: Array<Array<string>>, metadataCache: MetadataCache) {
-	for (let index = 0; index < rules.length; index++) {
-		const rule = rules[index];
-		if (gardenPath.startsWith(rule[1])) {
-			const vaultPath = rule[0] + gardenPath.slice(rule[1].length);
-			const linkedFile = metadataCache.getCache(vaultPath);
-			if (linkedFile) {
-				return vaultPath;
-			}
-		}
-	}
-	return gardenPath;
-}
-
-class FlowershowError extends Error {
+export class FlowershowError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "FlowershowError";
   }
 }
 
+export function detectGitAlgoFromSha(sha?: string): GitAlgo {
+  return sha?.length === 64 ? "SHA-256" : "SHA-1";
+}
 
-export {
-  extractBaseUrl,
-  generateUrlPath,
-  generateBlobHash,
-  kebabize,
-  wrapAround,
-  getRewriteRules,
-  getVaultPathForNote,
-  getGardenPathForNote,
-  escapeRegExp,
-  FlowershowError
-};
+export function isPlainTextExtension(ext: string) {
+  return ["md", "mdx", "json", "yaml", "yml", "css"].includes(ext)
+
+}
+export type GitAlgo = "SHA-1" | "SHA-256";

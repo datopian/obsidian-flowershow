@@ -2,7 +2,7 @@ import { App, Notice, TFile } from "obsidian";
 import { IFlowershowSettings } from "./settings";
 import { Octokit } from "@octokit/rest";
 import { validatePublishFrontmatter, validateSettings } from "./Validator";
-import { FlowershowError } from "./utils";
+import { detectGitAlgoFromSha, FlowershowError, gitBlobOidFromBinary, gitBlobOidFromText, isPlainTextExtension } from "./utils";
 import PublishStatusBar from "./PublishStatusBar";
 
 export interface PublishStatus {
@@ -185,6 +185,7 @@ export default class Publisher {
         console.log({localFiles})
         
         const seenRemoteFiles = new Set<string>();
+        const algo = detectGitAlgoFromSha(remoteFileHashes[0])
         
         // Find new and changed files
         for (const file of localFiles) {
@@ -200,29 +201,17 @@ export default class Publisher {
             // Mark this remote file as seen
             seenRemoteFiles.add(normalizedPath);
             
-            let content: string;
-            let encoding: "utf-8" | "base64";
-            // Get local file content and calculate its hash
+            let localOid: string;
             if (isPlainTextExtension(file.extension)) {
-              content = await this.app.vault.cachedRead(file); // string
-              encoding = "utf-8";
+              const text = await this.app.vault.cachedRead(file); // string
+              localOid = await gitBlobOidFromText(text, algo);
             } else {
-              const bytes = await this.app.vault.readBinary(file);
-              content = Buffer.from(bytes).toString("base64");
-              encoding = "base64";
+              const bytes = await this.app.vault.readBinary(file); // Uint8Array
+              localOid = await gitBlobOidFromBinary(bytes, algo);
             }
 
-            const localHash = await this.octokit.rest.git.createBlob({
-                owner: this.settings.githubUserName,
-                repo: this.settings.githubRepo,
-                content,
-                encoding
-            }).then(response => response.data.sha);
-
-            console.log({path: file.path, remoteHash, localHash})
-            
             // Compare hashes to determine if file has changed
-            if (localHash === remoteHash) {
+            if (localOid === remoteHash) {
                 unchangedFiles.push(file);
             } else {
                 changedFiles.push(file);
@@ -601,9 +590,4 @@ export default class Publisher {
       }
     }
   }
-}
-
-function isPlainTextExtension(ext: string) {
-  return ["md", "mdx", "json", "yaml", "yml", "css"].includes(ext)
-
 }
