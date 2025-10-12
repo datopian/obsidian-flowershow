@@ -266,7 +266,7 @@ export default class Publisher {
       throw new FlowershowError("Invalid Flowershow GitHub settings");
     }
 
-    if (!opts.filesToDelete?.length && !opts.filesToDelete?.length) {
+    if (!opts.filesToPublish?.length && !opts.filesToDelete?.length) {
       throw new FlowershowError("No files to delete or publish provided")
     }
 

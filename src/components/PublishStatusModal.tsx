@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
-import { App, Modal, TFile } from 'obsidian';
+import { App, Modal, Notice, TFile } from 'obsidian';
 
 import type { IFlowershowSettings } from '../settings';
 import type { PublishStatus } from '../Publisher';
@@ -16,6 +16,7 @@ import { TreeItemIcon } from '@mui/x-tree-view/TreeItemIcon';
 import { TreeItemIconContainer, TreeItemCheckbox, TreeItemLabel, TreeItemRoot, TreeItemContent, TreeItemGroupTransition } from '@mui/x-tree-view/TreeItem';
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
+import { FlowershowError } from 'src/utils';
 
 interface PublishStatusModalProps {
   app: App;
@@ -159,6 +160,7 @@ const Section: React.FC<SectionProps> = ({
           checkboxSelection
           selectedItems={selectedFileItems}
           onSelectedItemsChange={(_, ids) => {
+            console.log({ids})
             // Drop any folder IDs; keep files only
             const filesOnly = (ids as (string | number)[]).filter((id) =>
               fileIdSet.has(String(id))
@@ -209,15 +211,21 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
   onClose 
 }) => {
   const [publishStatus, setPublishStatus] = React.useState<PublishStatus | null>(null);
-  const [progressMessage, setProgressMessage] = React.useState('');
-
-  const [selectedBySection, setSelectedBySection] = React.useState<Record<string, string[]>>({
+  const [selectedBySection, setSelectedBySection] = React.useState<Record<"Changed"| "New" | "Deleted" | "Unchanged", string[]>>({
     Changed: [],
     New: [],
     Deleted: [],
     Unchanged: [],
   });
 
+  const { unchangedFiles, changedFiles, newFiles, deletedFiles } = publishStatus || {
+    unchangedFiles: [],
+    changedFiles: [],
+    newFiles: [],
+    deletedFiles: []
+  };
+
+  const isLoading = !publishStatus;
 
   const fetchStatus = async () => {
     const status = await publisher.getPublishStatus();
@@ -232,97 +240,64 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
     await fetchStatus();
   };
 
-  const publishNewFiles = async () => {
-    if (!publishStatus) return;
-    const { newFiles } = publishStatus;
-    
+  const handlePublishOperation = async (
+    operation: 'publish' | 'unpublish',
+    count: number,
+    action: () => Promise<{ prNumber: number; prUrl: string; merged: boolean }>,
+  ) => {
     try {
-      setProgressMessage(`⌛ Publishing ${newFiles.length} unpublished notes...`);
-      const result = await publisher.publishBatch({
-        filesToPublish: newFiles
-      });
-      setProgressMessage(`✅ Published ${newFiles.length} notes. PR #${result.prNumber} ${result.merged ? 'merged' : 'created'}`);
-    } catch (error) {
-      if (error instanceof Error) {
-        setProgressMessage(`❌ Error while publishing notes: ${error.message}`);
-      }
-    }
+      new Notice(`⌛ ${operation === 'publish' ? 'Publishing' : 'Unpublishing'} ${count} files...`);
+      const result = await action();
+      const frag = document.createDocumentFragment();
+      frag.append(document.createTextNode(`✅ ${operation === 'publish' ? 'Published' : 'Unpublished'} ${count} notes. PR #${result.prNumber} `));
 
-    setTimeout(() => setProgressMessage(''), 5000);
+      const a = document.createElement('a');
+      a.href = result.prUrl;
+      a.textContent = result.merged ? 'merged' : 'created';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+
+      frag.append(a);
+      new Notice(frag, 8000);
+    } catch (e: any) {
+      if (e instanceof FlowershowError) {
+        new Notice(`❌ Couldn't ${operation} files: ${e.message}`);
+      }
+      new Notice(`❌ Couldn't ${operation} files. See console errors for more info.`);
+      throw e;
+    }
     await fetchStatus();
   };
 
-  const publishChangedFiles = async () => {
-    if (!publishStatus) return;
-    const { changedFiles } = publishStatus;
-
-    try {
-      setProgressMessage(`⌛ Publishing ${changedFiles.length} changed notes...`);
-      const result = await publisher.publishBatch({
-        filesToPublish: changedFiles
-      });
-      setProgressMessage(`✅ Published ${changedFiles.length} notes. PR #${result.prNumber} ${result.merged ? 'merged' : 'created'}`);
-    } catch (error) {
-      if (error instanceof Error) {
-        setProgressMessage(`❌ Error while publishing notes: ${error.message}`);
-      }
-    }
-
-    setTimeout(() => setProgressMessage(''), 5000);
-    await fetchStatus();
+  const publishSelectedNewFiles = async () => {
+    const selectedIds = selectedBySection.New;
+    const files = mapIdsToTFiles(newFiles, selectedIds);
+    await handlePublishOperation('publish', files.length, () =>
+      publisher.publishBatch({ filesToPublish: files })
+    );
   };
 
-  const unpublishDeletedFiles = async () => {
-    if (!publishStatus) return;
-
-    const { deletedFiles } = publishStatus;
-
-    try {
-      setProgressMessage(`⌛ Deleting ${deletedFiles.length} notes...`);
-      const result = await publisher.publishBatch({
-        filesToDelete: deletedFiles
-      });
-      setProgressMessage(`✅ Deleted ${deletedFiles.length} notes. PR #${result.prNumber} ${result.merged ? 'merged' : 'created'}`);
-    } catch (error) {
-      if (error instanceof Error) {
-        setProgressMessage(`❌ Error while deleting notes: ${error.message}`);
-      }
-    }
-
-    setTimeout(() => setProgressMessage(''), 5000);
-    await fetchStatus();
+  const publishSelectedChangedFiles = async () => {
+    const selectedIds = selectedBySection.Changed;
+    const files = mapIdsToTFiles(changedFiles, selectedIds);
+    await handlePublishOperation('publish', files.length, () =>
+      publisher.publishBatch({ filesToPublish: files })
+    );
   };
 
-  const unpublishUnchangedFiles = async () => {
-    if (!publishStatus) return;
-
-    const { unchangedFiles } = publishStatus;
-
-    try {
-      setProgressMessage(`⌛ Deleting ${unchangedFiles.length} notes...`);
-      const result = await publisher.publishBatch({
-        filesToDelete: unchangedFiles.map((f) => f.path)
-      });
-      setProgressMessage(`✅ Deleted ${unchangedFiles.length} notes. PR #${result.prNumber} ${result.merged ? 'merged' : 'created'}`);
-    } catch (error) {
-      if (error instanceof Error) {
-        setProgressMessage(`❌ Error while deleting notes: ${error.message}`);
-      }
-    }
-
-    setTimeout(() => setProgressMessage(''), 5000);
-    await fetchStatus();
+  const unpublishSelectedDeletedFiles = async () => {
+    const paths = selectedBySection.Deleted;
+    await handlePublishOperation('unpublish', paths.length, () =>
+      publisher.publishBatch({ filesToDelete: paths })
+    );
   };
 
-
-  const { unchangedFiles, changedFiles, newFiles, deletedFiles } = publishStatus || {
-    unchangedFiles: [],
-    changedFiles: [],
-    newFiles: [],
-    deletedFiles: []
+  const unpublishSelectedUnchangedFiles = async () => {
+    const paths = selectedBySection.Unchanged;
+    await handlePublishOperation('unpublish', paths.length, () =>
+      publisher.publishBatch({ filesToDelete: paths })
+    );
   };
-
-  const isLoading = !publishStatus;
 
   return (
     <>
@@ -373,10 +348,6 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
         </div>
       </div>
 
-      <div className="progress-container" style={{ padding: '0 10px', marginBottom: '8px' }}>
-        {progressMessage}
-      </div>
-
       <div style={{ opacity: isLoading ? 0.7 : 1 }}>
         <Section
           title="Changed"
@@ -384,10 +355,9 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
           items={changedFiles}
           buttonText="Update selected files"
           loading={isLoading}
-          onButtonClick={publishChangedFiles}
+          onButtonClick={publishSelectedChangedFiles}
           selectedItems={selectedBySection.Changed}
           onSelectionChange={(ids) => {
-            console.log({ids})
             setSelectedBySection((s) => ({ ...s, Changed: ids as string[] }))
           }}
         />
@@ -398,7 +368,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
           items={newFiles}
           buttonText="Publish selected files"
           loading={isLoading}
-          onButtonClick={publishNewFiles}
+          onButtonClick={publishSelectedNewFiles}
           selectedItems={selectedBySection.New}
           onSelectionChange={(ids) =>
             setSelectedBySection((s) => ({ ...s, New: ids as string[] }))
@@ -411,7 +381,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
           items={deletedFiles}
           buttonText="Unpublish selected files"
           loading={isLoading}
-          onButtonClick={unpublishDeletedFiles}
+          onButtonClick={unpublishSelectedDeletedFiles}
           selectedItems={selectedBySection.Deleted}
           onSelectionChange={(ids) =>
             setSelectedBySection((s) => ({ ...s, Deleted: ids as string[] }))
@@ -424,7 +394,7 @@ const PublishStatusModalContent: React.FC<PublishStatusModalContentProps> = ({
           items={unchangedFiles}
           buttonText="Unpublish selected files"
           loading={isLoading}
-          onButtonClick={unpublishUnchangedFiles}
+          onButtonClick={unpublishSelectedUnchangedFiles}
           selectedItems={selectedBySection.Unchanged}
           onSelectionChange={(ids) =>
             setSelectedBySection((s) => ({ ...s, Unchanged: ids as string[] }))
@@ -500,3 +470,9 @@ const CustomTreeItem = React.forwardRef(
     );
   }
 );
+
+// --- Helpers: map selection (ids) -> TFile[] or string[] ---
+function mapIdsToTFiles(pool: TFile[], ids: string[]): TFile[] {
+  const byPath = new Map(pool.map(f => [f.path, f]));
+  return ids.map(id => byPath.get(id)).filter((v): v is TFile => !!v);
+}

@@ -104,7 +104,7 @@ export default class Flowershow extends Plugin {
       if (e instanceof FlowershowError) {
         new Notice(`❌ Can't publish note: ${e.message}`);
       } else {
-        new Notice(`❌ Can't publish note`);
+        new Notice(`❌ Can't publish note.`);
       }
       throw e
     }
@@ -119,7 +119,7 @@ export default class Flowershow extends Plugin {
       const filesToPublish = changedFiles.concat(newFiles);
 
       if (!filesToDelete.length && !filesToPublish.length) {
-			  new Notice("Nothing to publish or delete");
+			  new Notice("❌ Nothing to publish or delete.");
         return
       }
 
@@ -128,9 +128,11 @@ export default class Flowershow extends Plugin {
         filesToDelete
       });
 
+      new Notice("💐 Published!")
+
 		} catch (e: any) {
 			console.error(e);
-			new Notice("Unable to publish notes. See console errors for more info.");
+			new Notice("❌ Can't publish notes. Check console errors for more info.");
 		}
 	}
 
