@@ -61,10 +61,32 @@ The Flowershow icon in your ribbon opens the Publication Status panel, which sho
   - Example: `^private/` excludes the private directory
   - Note: Files excluded here won't be pushed to GitHub. To exclude files from Flowershow publishing while keeping them in GitHub, use `config.json` instead
 
+#### Configuration Files
+
+Both `custom.css` and `config.json` files can be edited locally and published with the plugin:
+- [`custom.css`](https://flowershow.app/docs/custom-css) - Customize your site's styling
+- [`config.json`](https://flowershow.app/docs/config-file) - Configure site-wide settings
+
 ### Available Commands
 
-* `Flowershow: Publish single note (with embeds)` - Publishes the current note with its embeds
-* `Flowershow: Publish all` - Publishes all files in your vault
+* `Flowershow: Publish single note (with embeds)` - Publishes the current note with its embeds. This will publish the current note and any embedded content, but generally won't publish linked notes.
+* `Flowershow: Publish all` - Publishes all files in your vault by comparing your vault with the GitHub repository, taking into account exclude settings. Unlike single note publishing, this doesn't process embeds but rather synchronizes the entire vault content with GitHub.
+
+### Excalidraw Support
+
+To publish Excalidraw drawings with Flowershow, configure the Excalidraw plugin to:
+1. Export drawings as SVG/PNG files
+2. Use exported files in note links
+
+In Excalidraw plugin settings:
+1. Go to "Embedding Excalidraw into your Notes and Exporting"
+2. Go to "Export settings"
+3. Go to "Auto-export settings" 
+4. Enable "Auto-export SVG" or "Auto-export PNG"
+5. Enable "Keep the .SVG and/or .PNG filenames in sync..." (if you want)
+6. Go to the top of the main section and in "Type of file to insert into the document" select "SVG" or "PNG"
+
+This ensures your drawings will be properly published and displayed on your Flowershow site.
 
 ---
 

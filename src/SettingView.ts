@@ -199,7 +199,7 @@ export default class SettingView {
     // Add a help text with examples
     const helpText = settingContainer.createEl('div', { cls: 'setting-item-description' });
     helpText.innerHTML = `
-      Note: This excludes files from being pushed to your GitHub repo. If you still want them to be pushed and version controled, but you don't want them to be published by Flowershow, exclude them in your config.json.
+      Note: This excludes files from being pushed to your GitHub repo, e.g. for some private content that you don't want to leave your personal computer. If you still want them to be pushed and version controled, but you don't want them to be published by Flowershow, exclude them in your config.json.
       Examples:<br>
       • <code>^private/</code> - Exlude private directory
     `
