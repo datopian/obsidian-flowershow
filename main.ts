@@ -3,7 +3,7 @@ import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile, PluginMan
 import { IFlowershowSettings, DEFAULT_SETTINGS } from 'src/settings';
 import Publisher from 'src/Publisher';
 import PublishStatusBar from 'src/PublishStatusBar';
-import PublishStatusModal from 'src/PublishStatusModal';
+import { PublishStatusModal } from 'src/components/PublishStatusModal';
 import SettingView from 'src/SettingView';
 
 import { flowershowIcon } from 'src/constants';
@@ -137,9 +137,11 @@ export default class Flowershow extends Plugin {
   openPublishStatusModal() {
     if (!this.publishStatusModal) {
       this.publishStatusModal = new PublishStatusModal(
-        this.app,
-        this.publisher,
-        this.settings
+        {
+        app: this.app,
+        publisher: this.publisher,
+        settings: this.settings
+        }
       );
     }
     this.publishStatusModal.open();
