@@ -1,33 +1,82 @@
 // DONE
 export default class PublishStatusBar {
-    publishCounter: number;
-    publishTotal: number;
-
     statusBarItem: HTMLElement;
     status: HTMLElement;
 
-    constructor(statusBarItem: HTMLElement, notesToPublishCount: number) {
-        this.statusBarItem = statusBarItem;
-        this.publishCounter = 0;
-        this.publishTotal = notesToPublishCount;
+    publishCounter: number;
+    publishTotal: number;
+    deleteCounter: number;
+    deleteTotal: number;
 
-        this.statusBarItem.createEl("span", { text: "Flowershow: " });
-        this.status = this.statusBarItem.createEl("span");
+    constructor(statusBarItem: HTMLElement) {
+      this.statusBarItem = statusBarItem;
+      this.publishCounter = 0;
+      this.deleteCounter = 0;
     }
 
-    increment() {
+    incrementPublish() {
         ++this.publishCounter;
-        this.status.innerText = `⌛ Publishing notes: ${this.publishCounter}/${this.publishTotal}`;
+        this.updateStatus();
+    }
+
+    incrementDelete() {
+        ++this.deleteCounter;
+        this.updateStatus();
+    }
+
+    private updateStatus() {
+        const publishStatus = this.publishTotal > 0
+            ? `Publishing: ${this.publishCounter}/${this.publishTotal}`
+            : '';
+        const deleteStatus = this.deleteTotal > 0
+            ? `Deleting: ${this.deleteCounter}/${this.deleteTotal}`
+            : '';
+        
+        if (publishStatus && deleteStatus) {
+            this.status.innerText = `⌛ ${publishStatus}, ${deleteStatus}`;
+        } else if (publishStatus) {
+            this.status.innerText = `⌛ ${publishStatus}`;
+        } else if (deleteStatus) {
+            this.status.innerText = `⌛ ${deleteStatus}`;
+        }
+    }
+
+    start({
+      publishTotal = 0,
+      deleteTotal = 0
+    }: {
+      publishTotal?: number,
+      deleteTotal?: number
+    }) { 
+      if (!publishTotal && !deleteTotal) return;
+      this.publishTotal = publishTotal;
+      this.deleteTotal = deleteTotal;
+      this.status = this.statusBarItem.createEl("span", { text: "💐: " });
+      this.updateStatus();
     }
 
     finish(displayDurationMillisec: number) {
-        this.status.innerText = `✅ Published notes: ${this.publishCounter}/${this.publishTotal}`;
+        const publishStatus = this.publishTotal > 0
+            ? `Published: ${this.publishCounter}/${this.publishTotal}`
+            : '';
+        const deleteStatus = this.deleteTotal > 0
+            ? `Deleted: ${this.deleteCounter}/${this.deleteTotal}`
+            : '';
+        
+        if (publishStatus && deleteStatus) {
+            this.status.innerText = `${publishStatus}, ${deleteStatus}`;
+        } else if (publishStatus) {
+            this.status.innerText = `${publishStatus}`;
+        } else if (deleteStatus) {
+            this.status.innerText = `${deleteStatus}`;
+        }
+
         setTimeout(() => {
-            this.statusBarItem.remove();
+            this.status.remove();
         }, displayDurationMillisec);
     }
 
     error() {
-        this.statusBarItem.remove();
+        this.status.remove();
     }
 }

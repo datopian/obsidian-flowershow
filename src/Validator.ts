@@ -1,7 +1,5 @@
 import { FrontMatterCache, Notice } from "obsidian";
-
-import { FlowershowSettings } from "./FlowershowSettings";
-
+import { IFlowershowSettings } from "./settings";
 
 export function validatePublishFrontmatter(frontMatter: FrontMatterCache): boolean {
     if (frontMatter && frontMatter["publish"] === false) {
@@ -11,7 +9,7 @@ export function validatePublishFrontmatter(frontMatter: FrontMatterCache): boole
     return true;
 }
 
-export function validateSettings(settings: FlowershowSettings): boolean {
+export function validateSettings(settings: IFlowershowSettings): boolean {
     if (!settings.githubRepo) {
         new Notice("Config error: You need to define a GitHub repo in the plugin settings");
         return false;
@@ -23,6 +21,10 @@ export function validateSettings(settings: FlowershowSettings): boolean {
     if (!settings.githubToken) {
         new Notice("Config error: You need to define a GitHub Token in the plugin settings");
         return false;
+    }
+    if (!settings.branch?.trim()) {
+        new Notice("Config error: Branch cannot be empty. Using 'main' as default.");
+        settings.branch = 'main';
     }
     return true;
 }

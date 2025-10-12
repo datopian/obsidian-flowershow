@@ -1,33 +1,40 @@
-import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, addIcon, Modal, TFile, PluginManifest } from 'obsidian';
 
-import { FlowershowSettings, DEFAULT_SETTINGS } from 'src/FlowershowSettings';
-import Publisher, { IPublisher } from 'src/Publisher';
+import { IFlowershowSettings, DEFAULT_SETTINGS } from 'src/settings';
+import Publisher from 'src/Publisher';
 import PublishStatusBar from 'src/PublishStatusBar';
-import PublishStatusManager from 'src/PublishStatusManager';
-import PublishStatusModal from 'src/PublishStatusModal';
+import { PublishStatusModal } from 'src/components/PublishStatusModal';
 import SettingView from 'src/SettingView';
-import SiteManager, { ISiteManager } from 'src/SiteManager';
 
 import { flowershowIcon } from 'src/constants';
+import { FlowershowError, createPRNotice } from 'src/utils';
 
 
 export default class Flowershow extends Plugin {
-	appVersion: string;
-	settings: FlowershowSettings;
+  private startupAnalytics: string[] = [];
+  private lastLogTimestamp: number;
+  private loadTimestamp:number;
+	private publishStatusModal: PublishStatusModal;
 
-	publishStatusModal: PublishStatusModal;
-	publisher: IPublisher;
-	siteManager: ISiteManager;
-	publishStatusManager: PublishStatusManager;
+	public settings: IFlowershowSettings;
+	public publisher: Publisher;
+
+  constructor(app: App, manifest: PluginManifest) {
+    super(app, manifest);
+    this.loadTimestamp = Date.now();
+    this.lastLogTimestamp = this.loadTimestamp;
+    this.startupAnalytics = [];
+  }
 
 	async onload() {
-		this.appVersion = this.manifest.version;
-		console.log("Initializing Flowershow plugin v" + this.appVersion);
+    this.logStartupEvent("Plugin Constructor ready, starting onload()");
 
 		await this.loadSettings();
-		this.publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
-		this.siteManager = new SiteManager(this.app.metadataCache, this.settings);
-		this.publishStatusManager = new PublishStatusManager(this.siteManager, this.publisher);
+
+    const statusBarItem = this.addStatusBarItem();
+    const statusBar = new PublishStatusBar(statusBarItem);
+
+		this.publisher = new Publisher(this.app, this.settings, statusBar);
 
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
@@ -38,8 +45,9 @@ export default class Flowershow extends Plugin {
 		});
 	}
 
-	// onunload() {
-	// }
+  onunload() {
+    // TODO
+  }
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -52,127 +60,117 @@ export default class Flowershow extends Plugin {
 	async addCommands() {
 
 		this.addCommand({
-			id: 'publish-note',
-			name: 'Publish single note',
-			checkCallback: (checking: boolean) => {
+			id: 'publish-single-note',
+			name: 'Publish single note (with embeds)',
+			checkCallback: (checking) => {
 				if (checking) {
-					return !!this.app.workspace.getActiveFile();
+          const currentFile = this.app.workspace.getActiveFile();
+					return !!currentFile && currentFile.extension === "md"
 				}
 				this.publishSingleNote();
 			}
 		});
 
 		this.addCommand({
-			id: 'publish-all-notes',
-			name: 'Publish all notes',
+			id: 'publish-all-files',
+			name: 'Publish all',
 			checkCallback: (checking: boolean) => {
 				if (checking) {
 					return true
 				}
-				this.publishAllNotes();
+				this.publishAllFiles();
 			},
 		});
 	}
 
-	async publishSingleNote() {
+  /** Publish single note and its embeds */
+  // TODO make sure that embeds in frontmatter are published too!
+  async publishSingleNote() {
+    try {
+      const currentFile = this.app.workspace.getActiveFile();
+      if (!currentFile) {
+        new Notice("No file is open. Open a note and try again.");
+        return;
+      }
+      if (currentFile.extension !== "md") {
+        new Notice("This isn't a Markdown file. Open a .md note and try again.");
+        return;
+      }
+      new Notice("⌛ Publishing note...");
+      const result = await this.publisher.publishNote(currentFile);
+      const frag = createPRNotice(
+        "Published note.",
+        result.prNumber,
+        result.prUrl,
+        result.merged
+      );
+      new Notice(frag, 8000);
+    } catch (e: any) {
+      console.error(e);
+      if (e instanceof FlowershowError) {
+        new Notice(`❌ Can't publish note: ${e.message}`);
+      } else {
+        new Notice(`❌ Can't publish note.`);
+      }
+      throw e
+    }
+  }
+
+  // Publish new or changed files, and unpublish deleted files
+	async publishAllFiles() {
 		try {
-			const currentFile = this.app.workspace.getActiveFile();
-			// if (!currentFile) {
-			// 	new Notice("No file is open/active. Please open a file and try again.")
-			// 	return;
-			// }
+			const { changedFiles, deletedFiles, newFiles } = await this.publisher.getPublishStatus();
+      console.log({ changedFiles, deletedFiles, newFiles })
 
-			if (currentFile.extension !== 'md') {
-				new Notice("The current file is not a markdown file. Please open a markdown file and try again.")
-				return;
-			}
+      const filesToDelete = deletedFiles;
+      const filesToPublish = changedFiles.concat(newFiles);
 
-			new Notice("Publishing note...");
+      if (!filesToDelete.length && !filesToPublish.length) {
+			  new Notice("❌ Nothing new to publish or delete.");
+        return
+      }
 
-			await this.publisher.publishNote(currentFile);
-			new Notice(`✅ Successfully published note to your Flowershow site.`);
+      const result = await this.publisher.publishBatch({
+        filesToPublish,
+        filesToDelete
+      });
 
-		} catch (e) {
-			console.error(e)
-			new Notice("❌ Unable to publish note, something went wrong.")
+      const frag = createPRNotice(
+        `Published ${filesToPublish.length + filesToDelete.length} notes.`,
+        result.prNumber,
+        result.prUrl,
+        result.merged
+      );
+      new Notice(frag, 8000);
+
+  } catch (e: any) {
+   console.error(e);
+      if (e instanceof FlowershowError) {
+        new Notice(`❌ Can't publish notes: ${e.message}`);
+      } else {
+        new Notice("❌ Can't publish notes. Check console errors for more info.");
+      }
 		}
 	}
 
-	async publishAllNotes() {
-		const statusBarItem = this.addStatusBarItem();
-		try {
+  openPublishStatusModal() {
+    if (!this.publishStatusModal) {
+      this.publishStatusModal = new PublishStatusModal(
+        {
+        app: this.app,
+        publisher: this.publisher,
+        settings: this.settings
+        }
+      );
+    }
+    this.publishStatusModal.open();
+  }
 
-			new Notice('Processing files to publish...');
-
-			const { unpublishedNotes, changedNotes, deletedNotePaths } = await this.publishStatusManager.getPublishStatus();
-			const notesToPublish: TFile[] = changedNotes.concat(unpublishedNotes);
-			const notesToDelete: string[] = deletedNotePaths;
-			// TODO what about images to publish?
-			const filesRequiringActionCount = notesToPublish.length + notesToDelete.length;
-
-			const statusBar = new PublishStatusBar(statusBarItem, filesRequiringActionCount);
-
-			new Notice(`Publishing ${notesToPublish.length} notes and deleting ${notesToDelete.length} notes.`, 8000);
-
-			for (const file of notesToPublish) {
-				try {
-					statusBar.increment();
-					await this.publisher.publishNote(file);
-				} catch {
-					new Notice(`Unable to publish note ${file.path}, skipping it.`)
-				}
-			}
-			for (const path of notesToDelete) {
-				try {
-					// statusBar.increment();
-					await this.publisher.unpublishNote(path);
-				} catch {
-					new Notice(`Unable to delete note ${path}, skipping it.`)
-				}
-			}
-
-			statusBar.finish(8000);
-
-		} catch (e) {
-			statusBarItem.remove();
-			console.error(e)
-			new Notice("Unable to publish multiple notes, something went wrong.")
-		}
-	}
-
-	// async copyNoteUrlToClipboard() {
-	// 	try {
-	// 		const currentFile = this.app.workspace.getActiveFile();
-	// 		if (!currentFile) {
-	// 			new Notice("No file is open/active. Please open a file and try again.")
-	// 			return;
-	// 		}
-
-	// 		const fullUrl = this.siteManager.getNoteUrl(currentFile);
-
-	// 		await navigator.clipboard.writeText(fullUrl);
-	// 		new Notice(`Note URL copied to clipboard`);
-	// 	} catch (e) {
-	// 		console.log(e)
-	// 		new Notice("Unable to copy note URL to clipboard, something went wrong.")
-	// 	}
-	// }
-
-	// async addPublishFlag() {
-	// 	const engine = new ObsidianFrontMatterEngine(this.app.vault, this.app.metadataCache, this.app.workspace.getActiveFile());
-	// 	engine.set("dgpublish", true).apply();
-	// }
-
-	openPublishStatusModal() {
-		if (!this.publishStatusModal) {
-			const siteManager = new SiteManager(this.app.metadataCache, this.settings);
-			const publisher = new Publisher(this.app.vault, this.app.metadataCache, this.settings);
-			const publishStatusManager = new PublishStatusManager(siteManager, publisher);
-			this.publishStatusModal = new PublishStatusModal(this.app, publishStatusManager, publisher, this.settings);
-		}
-		this.publishStatusModal.open();
-	}
-
+  public logStartupEvent(message:string) {
+    const timestamp = Date.now();
+    this.startupAnalytics.push(`${message}\nTotal: ${timestamp - this.loadTimestamp}ms Delta: ${timestamp - this.lastLogTimestamp}ms\n`);
+    this.lastLogTimestamp = timestamp;
+  }
 }
 
 class FlowershowSettingTab extends PluginSettingTab {
@@ -181,23 +179,23 @@ class FlowershowSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: Flowershow) {
 		super(app, plugin);
 		this.plugin = plugin;
-
-		// if (!this.plugin.settings.noteSettingsIsInitialized) {
-		// 	const siteManager = new SiteManager(this.app.metadataCache, this.plugin.settings);
-		// 	siteManager.updateEnv();
-		// 	this.plugin.settings.noteSettingsIsInitialized = true;
-		// 	this.plugin.saveData(this.plugin.settings);
-		// }
 	}
 
-
-	async display(): Promise<void> {
+	display(): void {
 		const { containerEl } = this;
-		const settingView = new SettingView(this.app, containerEl, this.plugin.settings, async () => await this.plugin.saveData(this.plugin.settings));
-		const prModal = new Modal(this.app)
-		await settingView.initialize(prModal);
+    containerEl.empty()
+
+		const settingView = new SettingView(
+      containerEl,
+      this.plugin.publisher,
+      this.plugin.settings,
+      async () => {
+        await this.plugin.saveData(this.plugin.settings)
+        // rebuild dependents to pick up new settings
+        const statusBarItem = this.plugin.addStatusBarItem();
+        const statusBar = new PublishStatusBar(statusBarItem);
+        this.plugin.publisher = new Publisher(this.app, this.plugin.settings, statusBar);
+      });
+		settingView.initialize();
 	}
 }
-
-
-
