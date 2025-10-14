@@ -1,6 +1,6 @@
 {
     "name": "flowershow",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "description": "Obsidian Flowershow plugin for publishing with Flowershow direct from your obsidian vault.",
     "main": "main.js",
     "scripts": {
@@ -9,7 +9,7 @@
         "version": "node version-bump.mjs && git add manifest.json versions.json"
     },
     "keywords": [],
-    "author": "Ola Rubaj",
+    "author": "Flowershow",
     "license": "MIT",
     "devDependencies": {
         "@types/luxon": "^3.7.1",

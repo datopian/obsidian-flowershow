@@ -3,7 +3,7 @@ export const DEFAULT_SETTINGS: IFlowershowSettings = {
 	githubToken: '',
 	githubUserName: '',
 	branch: 'main',
-	autoMergePullRequests: false,
+	autoMergePullRequests: true,
 	mergeCommitMessage: 'Merge content updates',
 	excludePatterns: ["\.excalidraw(\.(md|excalidraw))?$"],
 }
