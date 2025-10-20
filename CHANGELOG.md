@@ -4,4 +4,4 @@
 
 ### Patch Changes
 
-- Fix publish status bar counter
+- Fix publish status bar counter https://github.com/datopian/obsidian-flowershow/issues/28
