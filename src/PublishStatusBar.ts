@@ -1,15 +1,14 @@
 // DONE
 export default class PublishStatusBar {
-    statusBarItem: HTMLElement;
-    status: HTMLElement;
+    statusBarContainer: HTMLSpanElement;
 
     publishCounter: number;
     publishTotal: number;
     deleteCounter: number;
     deleteTotal: number;
 
-    constructor(statusBarItem: HTMLElement) {
-      this.statusBarItem = statusBarItem;
+    constructor(statusBarContainer: HTMLSpanElement) {
+      this.statusBarContainer = statusBarContainer;
       this.publishCounter = 0;
       this.deleteCounter = 0;
     }
@@ -26,18 +25,18 @@ export default class PublishStatusBar {
 
     private updateStatus() {
         const publishStatus = this.publishTotal > 0
-            ? `Publishing: ${this.publishCounter}/${this.publishTotal}`
+            ? ` Publishing: ${this.publishCounter}/${this.publishTotal}`
             : '';
         const deleteStatus = this.deleteTotal > 0
-            ? `Deleting: ${this.deleteCounter}/${this.deleteTotal}`
+            ? ` Unpublishing: ${this.deleteCounter}/${this.deleteTotal}`
             : '';
         
         if (publishStatus && deleteStatus) {
-            this.status.innerText = `⌛ ${publishStatus}, ${deleteStatus}`;
+            this.statusBarContainer.innerText = `${publishStatus}, ${deleteStatus}`;
         } else if (publishStatus) {
-            this.status.innerText = `⌛ ${publishStatus}`;
+            this.statusBarContainer.innerText = `${publishStatus}`;
         } else if (deleteStatus) {
-            this.status.innerText = `⌛ ${deleteStatus}`;
+            this.statusBarContainer.innerText = `${deleteStatus}`;
         }
     }
 
@@ -47,36 +46,24 @@ export default class PublishStatusBar {
     }: {
       publishTotal?: number,
       deleteTotal?: number
-    }) { 
+    }) {
       if (!publishTotal && !deleteTotal) return;
       this.publishTotal = publishTotal;
       this.deleteTotal = deleteTotal;
-      this.status = this.statusBarItem.createEl("span", { text: "💐: " });
+      // Reset counters and status bar when starting new operation
+      this.publishCounter = 0;
+      this.deleteCounter = 0;
+      this.statusBarContainer.innerText = ""
       this.updateStatus();
     }
 
     finish(displayDurationMillisec: number) {
-        const publishStatus = this.publishTotal > 0
-            ? `Published: ${this.publishCounter}/${this.publishTotal}`
-            : '';
-        const deleteStatus = this.deleteTotal > 0
-            ? `Deleted: ${this.deleteCounter}/${this.deleteTotal}`
-            : '';
-        
-        if (publishStatus && deleteStatus) {
-            this.status.innerText = `${publishStatus}, ${deleteStatus}`;
-        } else if (publishStatus) {
-            this.status.innerText = `${publishStatus}`;
-        } else if (deleteStatus) {
-            this.status.innerText = `${deleteStatus}`;
-        }
-
         setTimeout(() => {
-            this.status.remove();
+            this.statusBarContainer.innerText = ""
         }, displayDurationMillisec);
     }
 
     error() {
-        this.status.remove();
+        this.statusBarContainer.innerText = ""
     }
 }

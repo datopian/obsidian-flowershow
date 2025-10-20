@@ -25,14 +25,20 @@ export default class Flowershow extends Plugin {
     this.lastLogTimestamp = this.loadTimestamp;
     this.startupAnalytics = [];
   }
-
+ 
 	async onload() {
     this.logStartupEvent("Plugin Constructor ready, starting onload()");
 
 		await this.loadSettings();
 
     const statusBarItem = this.addStatusBarItem();
-    const statusBar = new PublishStatusBar(statusBarItem);
+    statusBarItem.addClass('mod-clickable');
+    statusBarItem.createEl('span', { text: "💐" })
+    statusBarItem.addEventListener('click', () => {
+      this.openPublishStatusModal();
+    });
+    const statusContainer = statusBarItem.createSpan()
+    const statusBar = new PublishStatusBar(statusContainer);
 
 		this.publisher = new Publisher(this.app, this.settings, statusBar);
 
@@ -193,7 +199,13 @@ class FlowershowSettingTab extends PluginSettingTab {
         await this.plugin.saveData(this.plugin.settings)
         // rebuild dependents to pick up new settings
         const statusBarItem = this.plugin.addStatusBarItem();
-        const statusBar = new PublishStatusBar(statusBarItem);
+        statusBarItem.addClass('mod-clickable');
+        statusBarItem.createEl('span', { text: "💐" })
+        statusBarItem.addEventListener('click', () => {
+          this.plugin.openPublishStatusModal();
+        });
+        const statusContainer = statusBarItem.createSpan()
+        const statusBar = new PublishStatusBar(statusContainer);
         this.plugin.publisher = new Publisher(this.app, this.plugin.settings, statusBar);
       });
 		settingView.initialize();
