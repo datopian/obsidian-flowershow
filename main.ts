@@ -14,10 +14,12 @@ export default class Flowershow extends Plugin {
   private startupAnalytics: string[] = [];
   private lastLogTimestamp: number;
   private loadTimestamp:number;
-	private publishStatusModal: PublishStatusModal;
+ private publishStatusModal: PublishStatusModal;
+  private statusBarItem: HTMLElement;
+  public statusBar: PublishStatusBar;
 
-	public settings: IFlowershowSettings;
-	public publisher: Publisher;
+ public settings: IFlowershowSettings;
+ public publisher: Publisher;
 
   constructor(app: App, manifest: PluginManifest) {
     super(app, manifest);
@@ -31,16 +33,16 @@ export default class Flowershow extends Plugin {
 
 		await this.loadSettings();
 
-    const statusBarItem = this.addStatusBarItem();
-    statusBarItem.addClass('mod-clickable');
-    statusBarItem.createEl('span', { text: "💐" })
-    statusBarItem.addEventListener('click', () => {
+    this.statusBarItem = this.addStatusBarItem();
+    this.statusBarItem.addClass('mod-clickable');
+    this.statusBarItem.createEl('span', { text: "💐" })
+    this.statusBarItem.addEventListener('click', () => {
       this.openPublishStatusModal();
     });
-    const statusContainer = statusBarItem.createSpan()
-    const statusBar = new PublishStatusBar(statusContainer);
+    const statusContainer = this.statusBarItem.createSpan()
+    this.statusBar = new PublishStatusBar(statusContainer);
 
-		this.publisher = new Publisher(this.app, this.settings, statusBar);
+  this.publisher = new Publisher(this.app, this.settings, this.statusBar);
 
 		this.addSettingTab(new FlowershowSettingTab(this.app, this));
 		await this.addCommands();
@@ -52,7 +54,9 @@ export default class Flowershow extends Plugin {
 	}
 
   onunload() {
-    // TODO
+    if (this.statusBarItem) {
+      this.statusBarItem.remove();
+    }
   }
 
 	async loadSettings() {
@@ -197,16 +201,8 @@ class FlowershowSettingTab extends PluginSettingTab {
       this.plugin.settings,
       async () => {
         await this.plugin.saveData(this.plugin.settings)
-        // rebuild dependents to pick up new settings
-        const statusBarItem = this.plugin.addStatusBarItem();
-        statusBarItem.addClass('mod-clickable');
-        statusBarItem.createEl('span', { text: "💐" })
-        statusBarItem.addEventListener('click', () => {
-          this.plugin.openPublishStatusModal();
-        });
-        const statusContainer = statusBarItem.createSpan()
-        const statusBar = new PublishStatusBar(statusContainer);
-        this.plugin.publisher = new Publisher(this.app, this.plugin.settings, statusBar);
+        // rebuild publisher to pick up new settings
+        this.plugin.publisher = new Publisher(this.app, this.plugin.settings, this.plugin.statusBar);
       });
 		settingView.initialize();
 	}
