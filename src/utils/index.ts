@@ -18,9 +18,26 @@ async function digest(
 }
 
 /**
- * Calculate SHA-1 hash of file content
+ * Calculate the git blob SHA-1 of raw bytes.
+ *
+ * This MUST match the server contract: the Cloudflare worker stores
+ * `Blob.sha` as `SHA-1("blob " + byteLength + "\0" + content)` (see the
+ * worker's computeGitBlobSha) and the Go CLI sends the same. A plain SHA-1
+ * of the content would never match, so /sync would report every published
+ * file as "Changed" forever (issue #1310).
+ */
+async function calculateGitBlobSha(content: Uint8Array): Promise<string> {
+  const header = new TextEncoder().encode(`blob ${content.length}\0`);
+  const combined = new Uint8Array(header.length + content.length);
+  combined.set(header);
+  combined.set(content, header.length);
+  return digest("SHA-1", combined);
+}
+
+/**
+ * Calculate the git blob SHA-1 of binary file content.
  * @param content - File content as ArrayBuffer or Uint8Array
- * @returns SHA-1 hash as hex string
+ * @returns git blob SHA-1 hash as hex string
  */
 export async function calculateFileSha(
   content: ArrayBuffer | Uint8Array,
@@ -29,18 +46,18 @@ export async function calculateFileSha(
   const data =
     content instanceof ArrayBuffer ? new Uint8Array(content) : content;
 
-  return digest("SHA-1", data);
+  return calculateGitBlobSha(data);
 }
 
 /**
- * Calculate SHA-1 hash of text content
+ * Calculate the git blob SHA-1 of text content.
  * @param text - Text content as string
- * @returns SHA-1 hash as hex string
+ * @returns git blob SHA-1 hash as hex string
  */
 export async function calculateTextSha(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
-  return digest("SHA-1", data);
+  return calculateGitBlobSha(data);
 }
 
 export class FlowershowError extends Error {
