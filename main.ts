@@ -14,6 +14,7 @@ import Publisher from "src/Publisher";
 import SettingView from "src/SettingView";
 import { DEFAULT_SETTINGS, type IFlowershowSettings } from "src/settings";
 import { createSiteNotice, FlowershowError } from "src/utils";
+import { validateSettings } from "src/utils/publisherHelpers";
 
 export default class Flowershow extends Plugin {
 	private startupAnalytics: string[] = [];
@@ -122,6 +123,9 @@ export default class Flowershow extends Plugin {
 				);
 				return;
 			}
+			if (!validateSettings(this.settings)) {
+				return;
+			}
 			new Notice("⌛ Publishing note...");
 			const result = await this.publisher.publishSingleNoteWithEmbeds(
 				currentFile
@@ -145,6 +149,9 @@ export default class Flowershow extends Plugin {
 	// Publish new or changed files, and unpublish deleted files
 	async publishAllFiles() {
 		try {
+			if (!validateSettings(this.settings)) {
+				return;
+			}
 			const { changedFiles, deletedFiles, newFiles } =
 				await this.publisher.getPublishStatus();
 			// console.log({ changedFiles, deletedFiles, newFiles })
@@ -180,6 +187,9 @@ export default class Flowershow extends Plugin {
 	}
 
 	openPublishStatusModal() {
+		if (!validateSettings(this.settings)) {
+			return;
+		}
 		if (!this.publishStatusModal) {
 			this.publishStatusModal = new PublishStatusModal({
 				app: this.app,

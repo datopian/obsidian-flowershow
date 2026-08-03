@@ -36,9 +36,9 @@ export default class Publisher {
     this.client = new FlowershowClient(API_URL, this.settings.flowershowToken);
   }
 
-  /** Get site name, defaulting to vault name if not set */
+  /** Get the explicitly configured site name */
   getSiteName(): string {
-    return this.settings.siteName || this.app.vault.getName();
+    return this.settings.siteName;
   }
 
   /** Get username */
