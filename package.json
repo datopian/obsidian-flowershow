@@ -8,7 +8,7 @@
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
-    "version-packages": "changeset version && node version-bump.mjs && npm install --package-lock-only",
+    "version-packages": "changeset version && node version-bump.mjs",
     "release": "npm run build && node .github/scripts/create-release.mjs"
   },
   "keywords": [],
