@@ -1,5 +1,11 @@
 # flowershow
 
+## 4.2.2
+
+### Patch Changes
+
+- c25fa37: Never create sites from the plugin. Publishing now requires a Flowershow site that already exists with the exact same name as the "Site Name" setting; if it doesn't exist, publishing fails with a clear error instead of creating one.
+
 ## 4.2.1
 
 ### Patch Changes
