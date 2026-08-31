@@ -93,6 +93,76 @@ export default class Publisher {
   }
 
   /**
+   * Poll the server until it has finished processing the latest publish.
+   *
+   * Uploading a file to R2 only stages it; the server's finalizer workflow
+   * then processes the blob asynchronously. Until it finishes, a dry-run sync
+   * still reports the file as new/changed. Waiting here keeps the publish
+   * status accurate once we return.
+   */
+  private async waitForProcessing(siteId: string): Promise<void> {
+    const maxAttempts = 60; // ~60s max
+    const pollInterval = 1000; // 1s
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let status;
+      try {
+        status = await this.client.getSiteStatus(siteId);
+      } catch (error) {
+        // Transient status error shouldn't fail the whole publish; stop waiting.
+        console.error("Error polling site status:", error);
+        return;
+      }
+
+      // Stop once nothing is pending (complete, or errored/canceled files).
+      if (status.status !== "pending" && status.files.pending === 0) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+    // Timed out: return anyway; the follow-up status refresh will reconcile.
+  }
+
+  /**
+   * Poll the server until the given paths have been removed from the site.
+   *
+   * Unpublishing deletes the R2 object synchronously, but the blob record is
+   * removed asynchronously (via an R2 event). Unlike a publish, this path has
+   * no Publish record to poll, so we detect completion by listing the site's
+   * remaining blobs (a dry-run sync with an empty file list reports every
+   * existing blob under `deleted`) and waiting until none of ours remain.
+   */
+  private async waitForDeletion(
+    siteId: string,
+    paths: string[],
+  ): Promise<void> {
+    const maxAttempts = 60; // ~60s max
+    const pollInterval = 1000; // 1s
+    const pending = new Set(paths);
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let remainingBlobs: Set<string>;
+      try {
+        const sync = await this.client.syncFiles(siteId, [], true);
+        remainingBlobs = new Set(sync.deleted);
+      } catch (error) {
+        // Transient error shouldn't fail the whole operation; stop waiting.
+        console.error("Error polling deletion status:", error);
+        return;
+      }
+
+      // Done once none of our paths are still present on the server.
+      if (![...pending].some((path) => remainingBlobs.has(path))) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+    // Timed out: return anyway; the follow-up status refresh will reconcile.
+  }
+
+  /**
    * Publish note and optionally its embeds
    * @returns Site URL and publish status
    */
@@ -165,12 +235,17 @@ export default class Publisher {
       // Ensure site exists
       const siteId = await this.ensureSite();
 
+      // Track normalized paths that were unpublished so we can wait for the
+      // server to finish removing them below.
+      let deletedPaths: string[] = [];
+
       // Handle file deletions first if any
       if (opts.filesToDelete && opts.filesToDelete.length > 0) {
         // Normalize paths before deletion
         const normalizedPathsToDelete = opts.filesToDelete.map((path) =>
           normalizePath(path, this.settings.rootDir),
         );
+        deletedPaths = normalizedPathsToDelete;
 
         const deleteResult = await this.client.deleteFiles(
           siteId,
@@ -253,6 +328,22 @@ export default class Publisher {
 
           done++;
           progress.setMessage(`⌛ ${label} (${done}/${total})...`);
+        }
+      }
+
+      // Wait for the server to finish processing so the publish status is
+      // accurate once this returns. Uploads and deletes are finalized
+      // asynchronously, each tracked via a different signal.
+      if (
+        (opts.filesToPublish && opts.filesToPublish.length > 0) ||
+        deletedPaths.length > 0
+      ) {
+        progress.setMessage("⌛ Finalizing processing...");
+        if (opts.filesToPublish && opts.filesToPublish.length > 0) {
+          await this.waitForProcessing(siteId);
+        }
+        if (deletedPaths.length > 0) {
+          await this.waitForDeletion(siteId, deletedPaths);
         }
       }
 
