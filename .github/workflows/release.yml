@@ -27,7 +27,7 @@ jobs:
           node-version: "22.x"
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
