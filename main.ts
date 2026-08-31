@@ -111,6 +111,7 @@ export default class Flowershow extends Plugin {
 	/** Publish single note and its embeds */
 	// TODO make sure that embeds in frontmatter are published too!
 	async publishSingleNote() {
+		if (!validateSettings(this.settings)) return;
 		try {
 			const currentFile = this.app.workspace.getActiveFile();
 			if (!currentFile) {
@@ -148,6 +149,7 @@ export default class Flowershow extends Plugin {
 
 	// Publish new or changed files, and unpublish deleted files
 	async publishAllFiles() {
+		if (!validateSettings(this.settings)) return;
 		try {
 			if (!validateSettings(this.settings)) {
 				return;
