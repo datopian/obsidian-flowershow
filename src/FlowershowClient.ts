@@ -128,32 +128,6 @@ export class FlowershowClient {
   }
 
   /**
-   * Create a new site or get existing site by name
-   */
-  async createSite(
-    projectName: string,
-    overwrite: boolean = false,
-  ): Promise<{ site: Site }> {
-    const response = await this.apiRequest("/api/sites", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ projectName, overwrite }),
-    });
-
-    if (response.status >= 300) {
-      let error: { message?: string } = {};
-      try { error = response.json; } catch (_) {}
-      throw new Error(
-        error.message || `Failed to create site: ${response.status}`,
-      );
-    }
-
-    return response.json;
-  }
-
-  /**
    * Get a site by name
    */
   async getSiteByName(

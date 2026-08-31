@@ -74,17 +74,19 @@ export default class Publisher {
     return null;
   }
 
-  /** Get or create the site */
+  /**
+   * Resolve the existing site. The plugin never creates sites — the site must
+   * already exist on Flowershow with the exact same name as `siteName`.
+   */
   private async ensureSite(): Promise<string> {
     const existingSiteId = await this.getSiteId();
     if (existingSiteId) {
       return existingSiteId;
     }
 
-    // Create new site
-    const { site } = await this.client.createSite(this.getSiteName());
-    this.siteId = site.id;
-    return this.siteId;
+    throw new FlowershowError(
+      `Site "${this.getSiteName()}" was not found. Create it on Flowershow first, then set "Site Name" to the exact same name.`,
+    );
   }
 
   private async getTextContent(file: TFile): Promise<string> {

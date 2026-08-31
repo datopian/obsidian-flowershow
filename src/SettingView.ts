@@ -138,7 +138,7 @@ export default class SettingView {
 		new Setting(this.settingsRootElement)
 			.setName("Site Name")
 			.setDesc(
-				"Name of your Flowershow site (will be created if it doesn't exist)",
+				"Name of an existing Flowershow site. Create the site on Flowershow first, then enter its exact name here.",
 			)
 			.addText((text) =>
 				text
