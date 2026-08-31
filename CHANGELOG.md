@@ -1,5 +1,11 @@
 # flowershow
 
+## 4.2.1
+
+### Patch Changes
+
+- dca7631: Wait for the server to finish finalizing a publish or unpublish before reporting it complete. Uploading a file to R2 (or deleting one) only stages the change — the server processes blobs asynchronously — so the publish status view briefly showed just-published files as still "New" (and just-unpublished files as still present) until processing caught up, making it look as if the operation had stalled. The plugin now waits for finalization before refreshing status: publishes poll the site status endpoint until nothing is pending, and unpublishes poll a dry-run sync until the removed paths are gone. Files now land in the correct section immediately, without needing to close and reopen the modal.
+
 ## 4.2.0
 
 Require an explicit site name before publishing. Previously an empty site name silently fell back to the vault name, and the existing settings validation was never actually run. The plugin now validates settings at every publish entry point (single note, publish all, and the publish status modal) and blocks publishing with a clear notice until a site name is set.
