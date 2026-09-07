@@ -228,6 +228,41 @@ export function rewriteRootDirPaths(content: string, rootDir: string): string {
   return result;
 }
 
+/**
+ * Rewrite rootDir-prefixed paths inside a JSON Canvas file.
+ */
+export function rewriteCanvasPaths(content: string, rootDir: string): string {
+  if (!rootDir) return content;
+  const root = normalizeRootDir(rootDir);
+
+  let data: unknown;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    return content;
+  }
+
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !Array.isArray((data as { nodes?: unknown }).nodes)
+  ) {
+    return content;
+  }
+
+  const nodes = (data as { nodes: Array<Record<string, unknown>> }).nodes;
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") continue;
+    if (node.type === "file" && typeof node.file === "string") {
+      node.file = stripRootDirPrefix(node.file, root);
+    } else if (node.type === "text" && typeof node.text === "string") {
+      node.text = rewriteRootDirPaths(node.text, rootDir);
+    }
+  }
+
+  return JSON.stringify(data, null, "\t");
+}
+
 export function rewriteBaseQueryPaths(content: string, rootDir: string): string {
   if (!rootDir) return content;
   const root = normalizeRootDir(rootDir);

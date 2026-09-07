@@ -13,6 +13,7 @@ import {
   rewriteBaseQueryPaths,
   rewriteFrontmatterPaths,
   rewriteRootDirPaths,
+  rewriteCanvasPaths,
 } from "./publisherHelpers";
 import { IFlowershowSettings } from "src/settings";
 import { App, TFile } from "obsidian";
@@ -791,5 +792,83 @@ describe("rewriteRootDirPaths", () => {
     ].join("\n");
 
     expect(rewriteRootDirPaths(content, "Public")).toBe(expected);
+  });
+});
+
+describe("rewriteCanvasPaths", () => {
+  it("returns content unchanged when no rootDir", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "file", file: "Public/img.png" }],
+    });
+    expect(rewriteCanvasPaths(content, "")).toBe(content);
+  });
+
+  it("strips rootDir prefix from file node paths", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "file", file: "Public/Pasted image.png" }],
+      edges: [],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].file).toBe("Pasted image.png");
+  });
+
+  it("strips rootDir prefix from nested file node paths", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "file", file: "Public/Assets/photo.jpg" }],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].file).toBe("Assets/photo.jpg");
+  });
+
+  it("leaves file paths outside rootDir untouched", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "file", file: "Other/img.png" }],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].file).toBe("Other/img.png");
+  });
+
+  it("does not strip a mere prefix match that isn't a path segment", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "file", file: "PublicArchive/img.png" }],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].file).toBe("PublicArchive/img.png");
+  });
+
+  it("rewrites rootDir paths inside text node markdown", () => {
+    const content = JSON.stringify({
+      nodes: [{ id: "a", type: "text", text: "![[Public/img.png]] [[Public/note]]" }],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].text).toBe("![[img.png]] [[note]]");
+  });
+
+  it("handles a mix of node types", () => {
+    const content = JSON.stringify({
+      nodes: [
+        { id: "a", type: "file", file: "Public/img.png" },
+        { id: "b", type: "text", text: "see ![[Public/note.md]]" },
+        { id: "c", type: "link", url: "https://example.com/Public/x" },
+        { id: "d", type: "group", label: "Public" },
+      ],
+    });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result.nodes[0].file).toBe("img.png");
+    expect(result.nodes[1].text).toBe("see ![[note.md]]");
+    // Non-path fields are left alone.
+    expect(result.nodes[2].url).toBe("https://example.com/Public/x");
+    expect(result.nodes[3].label).toBe("Public");
+  });
+
+  it("returns content unchanged when JSON is invalid", () => {
+    const content = "{ not valid json";
+    expect(rewriteCanvasPaths(content, "Public")).toBe(content);
+  });
+
+  it("tolerates missing or non-array nodes", () => {
+    const content = JSON.stringify({ edges: [] });
+    const result = JSON.parse(rewriteCanvasPaths(content, "Public"));
+    expect(result).toEqual({ edges: [] });
   });
 });

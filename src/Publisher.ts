@@ -12,6 +12,7 @@ import {
   shouldSkipFile,
   validatePublishFrontmatter,
   rewriteRootDirPaths,
+  rewriteCanvasPaths,
 } from "./utils/publisherHelpers";
 
 export interface PublishStatus {
@@ -89,8 +90,21 @@ export default class Publisher {
     );
   }
 
+  /**
+   * Files whose contents we read, rewrite, and upload as UTF-8 text (rather than
+   * raw bytes). Beyond the plain-text formats, `.canvas` files are JSON that we
+   * must rewrite so their internal `file`/`text` references drop the rootDir
+   * prefix — otherwise the published canvas points at blob keys that don't exist.
+   */
+  private isTextFile(file: TFile): boolean {
+    return isPlainTextExtension(file.extension) || file.extension === "canvas";
+  }
+
   private async getTextContent(file: TFile): Promise<string> {
     const text = await this.app.vault.cachedRead(file);
+    if (file.extension === "canvas") {
+      return rewriteCanvasPaths(text, this.settings.rootDir);
+    }
     return rewriteRootDirPaths(text, this.settings.rootDir);
   }
 
@@ -283,7 +297,7 @@ export default class Publisher {
 
           // Calculate SHA
           let sha: string;
-          if (isPlainTextExtension(file.extension)) {
+          if (this.isTextFile(file)) {
             const text = await this.getTextContent(file);
             sha = await calculateTextSha(text);
           } else {
@@ -313,7 +327,7 @@ export default class Publisher {
           if (!file) continue;
 
           let content: ArrayBuffer | Uint8Array;
-          if (isPlainTextExtension(file.extension)) {
+          if (this.isTextFile(file)) {
             const text = await this.getTextContent(file);
             content = new TextEncoder().encode(text);
           } else {
@@ -427,7 +441,7 @@ export default class Publisher {
         const normalizedPath = normalizePath(file.path, this.settings.rootDir);
 
         let sha: string;
-        if (isPlainTextExtension(file.extension)) {
+        if (this.isTextFile(file)) {
           const text = await this.getTextContent(file);
           sha = await calculateTextSha(text);
         } else {
